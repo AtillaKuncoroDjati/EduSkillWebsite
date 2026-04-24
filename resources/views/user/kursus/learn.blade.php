@@ -244,6 +244,28 @@
             background-color: rgba(13, 110, 253, 0.1);
         }
 
+        .content-text {
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
+        .content-text img,
+        .content-text .ql-editor img {
+            max-width: 100% !important;
+            height: auto !important;
+            display: block;
+        }
+
+        .content-text .ql-align-center img {
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .content-text .ql-align-right img {
+            margin-left: auto;
+            margin-right: 0;
+        }
+
         .sticky-top {
             position: sticky;
             top: 0;
