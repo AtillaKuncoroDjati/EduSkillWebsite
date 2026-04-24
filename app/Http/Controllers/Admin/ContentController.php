@@ -156,6 +156,9 @@ class ContentController extends Controller
             'title' => 'nullable|string|max:255',
             'content' => 'required',
             'type' => 'required|in:text,quiz',
+            'integrity_mode_enabled' => 'nullable|boolean',
+            'require_fullscreen' => 'nullable|boolean',
+            'max_violations' => 'nullable|integer|min:1|max:20',
         ]);
 
         // Validasi tambahan untuk quiz
@@ -178,6 +181,9 @@ class ContentController extends Controller
             'title' => $request->title,
             'type' => $request->type,
             'content' => $request->content,
+            'integrity_mode_enabled' => $request->type === 'quiz' ? (bool) $request->integrity_mode_enabled : false,
+            'require_fullscreen' => $request->type === 'quiz' ? (bool) $request->require_fullscreen : false,
+            'max_violations' => $request->type === 'quiz' ? (int) ($request->max_violations ?? 3) : 3,
             'order' => $order,
         ]);
 
@@ -210,6 +216,9 @@ class ContentController extends Controller
             'title' => 'nullable|string|max:255',
             'content' => 'required',
             'type' => 'required|in:text,quiz',
+            'integrity_mode_enabled' => 'nullable|boolean',
+            'require_fullscreen' => 'nullable|boolean',
+            'max_violations' => 'nullable|integer|min:1|max:20',
         ]);
 
         // Validasi tambahan untuk quiz
@@ -236,6 +245,9 @@ class ContentController extends Controller
             'title' => $request->title,
             'type' => $request->type,
             'content' => $request->content,
+            'integrity_mode_enabled' => $request->type === 'quiz' ? (bool) $request->integrity_mode_enabled : false,
+            'require_fullscreen' => $request->type === 'quiz' ? (bool) $request->require_fullscreen : false,
+            'max_violations' => $request->type === 'quiz' ? (int) ($request->max_violations ?? 3) : 3,
         ]);
 
         // Cek gambar yang tidak digunakan (untuk text dan quiz)

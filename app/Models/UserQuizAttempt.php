@@ -18,12 +18,16 @@ class UserQuizAttempt extends Model
         'total_questions',
         'correct_answers',
         'is_passed',
+        'violation_count',
+        'is_auto_submitted',
+        'auto_submit_reason',
         'started_at',
         'completed_at',
     ];
 
     protected $casts = [
         'is_passed' => 'boolean',
+        'is_auto_submitted' => 'boolean',
         'started_at' => 'datetime',
         'completed_at' => 'datetime',
     ];
@@ -47,4 +51,10 @@ class UserQuizAttempt extends Model
     {
         return $this->hasMany(UserQuizAnswer::class, 'quiz_attempt_id');
     }
+
+    public function integrityEvents()
+    {
+        return $this->hasMany(UserQuizIntegrityEvent::class, 'user_quiz_attempt_id');
+    }
 }
+

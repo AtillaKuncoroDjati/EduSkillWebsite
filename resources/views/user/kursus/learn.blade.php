@@ -279,6 +279,15 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         let currentContentId = null;
+        let currentQuizAttemptId = null;
+        let integrityState = {
+            active: false,
+            enabled: false,
+            requireFullscreen: false,
+            maxViolations: 0,
+            currentViolations: 0,
+            autoSubmitted: false,
+        };
 
         function escapeHtml(text) {
             const div = document.createElement('div');
@@ -286,8 +295,115 @@
             return div.innerHTML;
         }
 
+        function resetIntegrityState() {
+            currentQuizAttemptId = null;
+            integrityState = {
+                active: false,
+                enabled: false,
+                requireFullscreen: false,
+                maxViolations: 0,
+                currentViolations: 0,
+                autoSubmitted: false,
+            };
+        }
+
+        function updateViolationCounter() {
+            const counter = $('#integrity-counter');
+            if (!counter.length) return;
+            counter.text('Pelanggaran: ' + integrityState.currentViolations + '/' + integrityState.maxViolations);
+        }
+
+        function requestFullscreenMode() {
+            if (!integrityState.requireFullscreen) return Promise.resolve();
+
+            const el = document.documentElement;
+            if (document.fullscreenElement) return Promise.resolve();
+
+            if (el.requestFullscreen) {
+                return el.requestFullscreen().catch(() => Promise.reject());
+            }
+            return Promise.reject();
+        }
+
+        function startIntegrityMonitoring() {
+            if (!integrityState.enabled) return;
+            integrityState.active = true;
+
+            document.addEventListener('visibilitychange', handleVisibilityViolation);
+            window.addEventListener('blur', handleWindowBlurViolation);
+            document.addEventListener('fullscreenchange', handleFullscreenViolation);
+        }
+
+        function stopIntegrityMonitoring() {
+            integrityState.active = false;
+            document.removeEventListener('visibilitychange', handleVisibilityViolation);
+            window.removeEventListener('blur', handleWindowBlurViolation);
+            document.removeEventListener('fullscreenchange', handleFullscreenViolation);
+        }
+
+        function handleVisibilityViolation() {
+            if (!integrityState.active || !integrityState.enabled || integrityState.autoSubmitted) return;
+            if (document.hidden) {
+                logIntegrityViolation('tab_switch');
+            }
+        }
+
+        function handleWindowBlurViolation() {
+            if (!integrityState.active || !integrityState.enabled || integrityState.autoSubmitted) return;
+            logIntegrityViolation('window_blur');
+        }
+
+        function handleFullscreenViolation() {
+            if (!integrityState.active || !integrityState.enabled || !integrityState.requireFullscreen || integrityState.autoSubmitted)
+                return;
+            if (!document.fullscreenElement) {
+                logIntegrityViolation('fullscreen_exit');
+            }
+        }
+
+        function logIntegrityViolation(type) {
+            if (!currentQuizAttemptId) return;
+
+            $.ajax({
+                url: '/user/daftar-kursus/{{ $kursus->id }}/quiz/' + currentContentId + '/integrity-log',
+                type: 'POST',
+                data: {
+                    _token: '{{ csrf_token() }}',
+                    attempt_id: currentQuizAttemptId,
+                    event_type: type
+                },
+                success: function(response) {
+                    if (!response.success) return;
+
+                    integrityState.currentViolations = response.violation_count || integrityState.currentViolations;
+                    updateViolationCounter();
+
+                    if (response.is_auto_submitted) {
+                        integrityState.autoSubmitted = true;
+                        stopIntegrityMonitoring();
+                        showQuizResult(response);
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Kuis Otomatis Dikirim',
+                            text: response.message ||
+                                'Kuis dikirim otomatis karena melebihi batas pelanggaran integritas.',
+                        });
+                        return;
+                    }
+
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Peringatan Integritas',
+                        html: 'Aktivitas mencurigakan terdeteksi.<br><strong>Pelanggaran: ' +
+                            integrityState.currentViolations + '/' + integrityState.maxViolations + '</strong>',
+                    });
+                }
+            });
+        }
+
         function loadContent(contentId, contentType) {
             currentContentId = contentId;
+            resetIntegrityState();
 
             $('.content-item').removeClass('bg-soft-primary');
             $('[data-content-id="' + contentId + '"]').addClass('bg-soft-primary');
@@ -339,11 +455,38 @@
                 return;
             }
 
+            const integrity = data.integrity_settings || {
+                enabled: false,
+                require_fullscreen: false,
+                max_violations: 0
+            };
+
             let html = '<div class="quiz-wrapper">';
             html += '<h3 class="mb-4">' + escapeHtml(data.title || 'Quiz') + '</h3>';
             html += '<div class="alert alert-info"><i class="ti ti-info-circle"></i> Quiz ini terdiri dari ' + data
                 .questions.length + ' pertanyaan. Minimal nilai 70% untuk lulus.</div>';
-            html += '<form id="quiz-form" onsubmit="submitQuiz(event, \'' + data.id + '\')">';
+
+            if (integrity.enabled) {
+                html += '<div class="card border-warning mb-3" id="integrity-rules-card"><div class="card-body">';
+                html += '<h5 class="mb-3"><i class="ti ti-shield-lock me-2"></i>Quiz Integrity Mode</h5>';
+                html += '<ul class="mb-3">';
+                html += '<li>Perpindahan tab akan dipantau.</li>';
+                html += '<li>Kehilangan fokus browser akan dipantau.</li>';
+                if (integrity.require_fullscreen) {
+                    html += '<li>Fullscreen wajib selama kuis berlangsung.</li>';
+                }
+                html += '<li>Pelanggaran akan dihitung dan disimpan.</li>';
+                html += '<li>Kuis dapat otomatis dikirim jika pelanggaran mencapai batas.</li>';
+                html += '</ul>';
+                html += '<p class="mb-3" id="integrity-counter">Pelanggaran: 0/' + integrity.max_violations + '</p>';
+                html +=
+                    '<button class="btn btn-warning" type="button" onclick="startQuizWithIntegrity('' + data.id + '', ' +
+                    integrity.require_fullscreen + ', ' + integrity.max_violations + ')">Saya Mengerti & Mulai Kuis</button>';
+                html += '</div></div>';
+                html += '<div id="quiz-form-wrapper" style="display:none;">';
+            }
+
+            html += '<form id="quiz-form" onsubmit="submitQuiz(event, '' + data.id + '')">';
 
             data.questions.forEach(function(question, index) {
                 html += '<div class="card mb-3"><div class="card-body">';
@@ -366,9 +509,66 @@
             html +=
                 '<button type="button" class="btn btn-outline-secondary" onclick="previousContent()"><i class="ti ti-arrow-left"></i> Sebelumnya</button>';
             html += '<button type="submit" class="btn btn-success"><i class="ti ti-send"></i> Submit Jawaban</button>';
-            html += '</div></form></div>';
+            html += '</div></form>';
 
+            if (integrity.enabled) {
+                html += '</div>';
+            }
+
+            html += '</div>';
             $('#content-display').html(html);
+
+            integrityState.enabled = !!integrity.enabled;
+            integrityState.requireFullscreen = !!integrity.require_fullscreen;
+            integrityState.maxViolations = integrity.max_violations || 0;
+
+            if (!integrity.enabled) {
+                startQuizAttempt(data.id, false);
+            }
+        }
+
+        function startQuizWithIntegrity(contentId, requireFullscreen, maxViolations) {
+            startQuizAttempt(contentId, true).then(function() {
+                integrityState.requireFullscreen = !!requireFullscreen;
+                integrityState.maxViolations = maxViolations || 3;
+
+                requestFullscreenMode().then(function() {
+                    $('#integrity-rules-card').hide();
+                    $('#quiz-form-wrapper').show();
+                    startIntegrityMonitoring();
+                    updateViolationCounter();
+                }).catch(function() {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Fullscreen Diperlukan',
+                        text: 'Silakan izinkan mode fullscreen untuk memulai kuis ini.'
+                    });
+                });
+            });
+        }
+
+        function startQuizAttempt(contentId, integrityEnabled) {
+            return $.ajax({
+                url: '/user/daftar-kursus/{{ $kursus->id }}/quiz/' + contentId + '/start',
+                type: 'POST',
+                data: {
+                    _token: '{{ csrf_token() }}'
+                },
+                success: function(response) {
+                    currentQuizAttemptId = response.attempt_id;
+                    integrityState.currentViolations = response.violation_count || 0;
+                    integrityState.enabled = integrityEnabled;
+                    integrityState.maxViolations = response.integrity_settings?.max_violations || integrityState.maxViolations;
+                    integrityState.requireFullscreen = response.integrity_settings?.require_fullscreen || integrityState.requireFullscreen;
+                },
+                error: function() {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal!',
+                        text: 'Gagal memulai attempt kuis.'
+                    });
+                }
+            });
         }
 
         function renderQuizReview(data) {
@@ -473,6 +673,8 @@
 
         function submitQuiz(event, contentId) {
             event.preventDefault();
+            stopIntegrityMonitoring();
+
             const formData = new FormData(event.target);
             const answers = {};
 
@@ -485,7 +687,8 @@
                 type: 'POST',
                 data: {
                     _token: '{{ csrf_token() }}',
-                    answers: answers
+                    answers: answers,
+                    attempt_id: currentQuizAttemptId
                 },
                 success: function(response) {
                     if (response.success) {
@@ -503,6 +706,9 @@
         }
 
         function showQuizResult(result) {
+            integrityState.autoSubmitted = !!result.is_auto_submitted;
+            stopIntegrityMonitoring();
+
             let html = '<div class="text-center py-5">';
             html += result.is_passed ? '<i class="ti ti-circle-check text-success" style="font-size: 80px;"></i>' :
                 '<i class="ti ti-circle-x text-danger" style="font-size: 80px;"></i>';
@@ -510,6 +716,11 @@
             html += !result.is_passed ?
                 '<p class="text-muted">Nilai minimal untuk lulus adalah 70%. Silakan coba lagi.</p>' :
                 '<p class="text-muted">Selamat! Anda telah menyelesaikan quiz ini.</p>';
+
+            if (result.is_auto_submitted) {
+                html += '<div class="alert alert-warning">' + (result.message ||
+                    'Kuis dikirim otomatis karena pelanggaran integritas mencapai batas.') + '</div>';
+            }
 
             html += '<div class="row g-3 mt-4 justify-content-center">';
             html +=

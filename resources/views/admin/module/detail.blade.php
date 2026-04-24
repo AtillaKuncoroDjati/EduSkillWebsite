@@ -150,6 +150,23 @@
 
                         <div id="create-quiz-builder" class="d-none">
                             <h6>Pertanyaan Kuis</h6>
+                            <div class="card border mb-3">
+                                <div class="card-body">
+                                    <h6 class="mb-3">Pengaturan Integritas Kuis</h6>
+                                    <div class="form-check form-switch mb-2">
+                                        <input class="form-check-input" type="checkbox" id="create-integrity-enabled"
+                                            name="integrity_mode_enabled" value="1">
+                                        <label class="form-check-label" for="create-integrity-enabled">Aktifkan Integrity Mode</label>
+                                    </div>
+                                    <div class="form-check form-switch mb-2">
+                                        <input class="form-check-input" type="checkbox" id="create-require-fullscreen"
+                                            name="require_fullscreen" value="1">
+                                        <label class="form-check-label" for="create-require-fullscreen">Wajib Fullscreen saat mengerjakan</label>
+                                    </div>
+                                    <label class="form-label">Maksimal Pelanggaran</label>
+                                    <input type="number" class="form-control" name="max_violations" min="1" max="20" value="3">
+                                </div>
+                            </div>
                             <div id="create-questions-container"></div>
                             <button type="button" class="btn btn-sm btn-soft-primary mt-2" id="create-add-question">
                                 Tambah Pertanyaan
@@ -201,6 +218,23 @@
 
                         <div id="edit-quiz-builder" class="d-none">
                             <h6>Pertanyaan Kuis</h6>
+                            <div class="card border mb-3">
+                                <div class="card-body">
+                                    <h6 class="mb-3">Pengaturan Integritas Kuis</h6>
+                                    <div class="form-check form-switch mb-2">
+                                        <input class="form-check-input" type="checkbox" id="edit-integrity-enabled"
+                                            name="integrity_mode_enabled" value="1">
+                                        <label class="form-check-label" for="edit-integrity-enabled">Aktifkan Integrity Mode</label>
+                                    </div>
+                                    <div class="form-check form-switch mb-2">
+                                        <input class="form-check-input" type="checkbox" id="edit-require-fullscreen"
+                                            name="require_fullscreen" value="1">
+                                        <label class="form-check-label" for="edit-require-fullscreen">Wajib Fullscreen saat mengerjakan</label>
+                                    </div>
+                                    <label class="form-label">Maksimal Pelanggaran</label>
+                                    <input type="number" class="form-control" id="edit-max-violations" name="max_violations" min="1" max="20" value="3">
+                                </div>
+                            </div>
                             <div id="edit-questions-container"></div>
                             <button type="button" class="btn btn-sm btn-soft-primary mt-2" id="edit-add-question">
                                 Tambah Pertanyaan
@@ -475,6 +509,9 @@
             $('#create-type').val('text').trigger('change');
             createQIndex = 0;
             $('#create-questions-container').html('');
+            $('#create-integrity-enabled').prop('checked', false);
+            $('#create-require-fullscreen').prop('checked', false);
+            $('input[name="max_violations"]').val(3);
             createQuill.setText('');
         });
 
@@ -592,6 +629,9 @@
 
                 setTimeout(() => {
                     editQuill.root.innerHTML = res.content || '';
+                    $('#edit-integrity-enabled').prop('checked', !!res.integrity_mode_enabled);
+                    $('#edit-require-fullscreen').prop('checked', !!res.require_fullscreen);
+                    $('#edit-max-violations').val(res.max_violations || 3);
 
                     if (type === 'quiz') {
                         res.questions.forEach((q, i) => {

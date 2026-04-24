@@ -10,11 +10,20 @@ class Content extends Model
 {
     use HasFactory, HasUuids;
 
+    protected $casts = [
+        'integrity_mode_enabled' => 'boolean',
+        'require_fullscreen' => 'boolean',
+        'max_violations' => 'integer',
+    ];
+
     protected $fillable = [
         'module_id',
         'title',
         'type',
         'content',
+        'integrity_mode_enabled',
+        'require_fullscreen',
+        'max_violations',
         'order'
     ];
 

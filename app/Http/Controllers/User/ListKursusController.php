@@ -5,11 +5,12 @@ namespace App\Http\Controllers\User;
 use App\Http\Controllers\Controller;
 use App\Models\Content;
 use App\Models\Kursus;
+use App\Models\User;
 use App\Models\UserContentProgress;
 use App\Models\UserCourse;
 use App\Models\UserQuizAnswer;
 use App\Models\UserQuizAttempt;
-use App\Models\User; // Tambahkan ini
+use App\Models\UserQuizIntegrityEvent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -68,7 +69,7 @@ class ListKursusController extends Controller
     public function enroll($id)
     {
         if (!Auth::check()) {
-            return redirect()->route('login')->with('error', 'Silakan login terlebih dahulu');
+            return redirect()->route('auth.view')->with('error', 'Silakan login terlebih dahulu');
         }
 
         /** @var User $user */
@@ -94,7 +95,7 @@ class ListKursusController extends Controller
     public function learn($id)
     {
         if (!Auth::check()) {
-            return redirect()->route('login')->with('error', 'Silakan login terlebih dahulu');
+            return redirect()->route('auth.view')->with('error', 'Silakan login terlebih dahulu');
         }
 
         /** @var User $user */
@@ -144,6 +145,12 @@ class ListKursusController extends Controller
                 'content' => nl2br($content->content),
             ]);
         } else if ($content->type === 'quiz') {
+            $integritySettings = [
+                'enabled' => (bool) $content->integrity_mode_enabled,
+                'require_fullscreen' => (bool) $content->require_fullscreen,
+                'max_violations' => (int) ($content->max_violations ?? 3),
+            ];
+
             $latestAttempt = UserQuizAttempt::where('user_id', Auth::id())
                 ->where('content_id', $contentId)
                 ->where('user_course_id', $userCourse->id)
@@ -179,11 +186,14 @@ class ListKursusController extends Controller
                     'title' => $content->title,
                     'type' => $content->type,
                     'already_passed' => true,
+                    'integrity_settings' => $integritySettings,
                     'attempt' => [
                         'score' => $latestAttempt->score,
                         'correct_answers' => $latestAttempt->correct_answers,
                         'total_questions' => $latestAttempt->total_questions,
                         'completed_at' => $latestAttempt->completed_at->format('d M Y H:i'),
+                        'violation_count' => $latestAttempt->violation_count,
+                        'is_auto_submitted' => $latestAttempt->is_auto_submitted,
                     ],
                     'quiz_details' => $quizDetails,
                 ]);
@@ -194,6 +204,7 @@ class ListKursusController extends Controller
                 'title' => $content->title,
                 'type' => $content->type,
                 'already_passed' => false,
+                'integrity_settings' => $integritySettings,
                 'questions' => $content->questions->map(function ($question) {
                     return [
                         'id' => $question->id,
@@ -208,6 +219,160 @@ class ListKursusController extends Controller
                 }),
             ]);
         }
+    }
+
+    public function startQuizAttempt($kursusId, $contentId)
+    {
+        /** @var User $user */
+        $user = Auth::user();
+        $userCourse = $user->getEnrolledCourse($kursusId);
+
+        if (!$userCourse) {
+            return response()->json(['error' => 'Access denied'], 403);
+        }
+
+        $content = Content::with('questions')->findOrFail($contentId);
+
+        if ($content->type !== 'quiz') {
+            return response()->json(['error' => 'Not a quiz'], 400);
+        }
+
+        $attempt = UserQuizAttempt::where('user_id', Auth::id())
+            ->where('content_id', $contentId)
+            ->where('user_course_id', $userCourse->id)
+            ->whereNull('completed_at')
+            ->latest()
+            ->first();
+
+        if (!$attempt) {
+            $attempt = UserQuizAttempt::create([
+                'user_id' => Auth::id(),
+                'content_id' => $contentId,
+                'user_course_id' => $userCourse->id,
+                'total_questions' => $content->questions->count(),
+                'started_at' => now(),
+                'violation_count' => 0,
+                'is_auto_submitted' => false,
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'attempt_id' => $attempt->id,
+            'violation_count' => $attempt->violation_count,
+            'integrity_settings' => [
+                'enabled' => (bool) $content->integrity_mode_enabled,
+                'require_fullscreen' => (bool) $content->require_fullscreen,
+                'max_violations' => (int) ($content->max_violations ?? 3),
+            ]
+        ]);
+    }
+
+    public function logIntegrityViolation($kursusId, $contentId, Request $request)
+    {
+        $request->validate([
+            'attempt_id' => 'required|exists:user_quiz_attempts,id',
+            'event_type' => 'required|in:tab_switch,window_blur,fullscreen_exit',
+        ]);
+
+        /** @var User $user */
+        $user = Auth::user();
+        $userCourse = $user->getEnrolledCourse($kursusId);
+
+        if (!$userCourse) {
+            return response()->json(['error' => 'Access denied'], 403);
+        }
+
+        $content = Content::with('questions')->findOrFail($contentId);
+        $attempt = UserQuizAttempt::where('id', $request->attempt_id)
+            ->where('user_id', Auth::id())
+            ->where('content_id', $contentId)
+            ->where('user_course_id', $userCourse->id)
+            ->firstOrFail();
+
+        if ($attempt->completed_at) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Attempt already completed',
+                'already_completed' => true,
+            ], 422);
+        }
+
+        $attempt->increment('violation_count');
+        $attempt->refresh();
+
+        $maxViolations = (int) ($content->max_violations ?? 3);
+        $shouldAutoSubmit = $content->integrity_mode_enabled && $attempt->violation_count >= $maxViolations;
+
+        UserQuizIntegrityEvent::create([
+            'user_id' => Auth::id(),
+            'user_quiz_attempt_id' => $attempt->id,
+            'user_course_id' => $userCourse->id,
+            'content_id' => $contentId,
+            'event_type' => $request->event_type,
+            'violation_count' => $attempt->violation_count,
+            'is_auto_submitted' => $shouldAutoSubmit,
+            'event_at' => now(),
+        ]);
+
+        if (!$shouldAutoSubmit) {
+            return response()->json([
+                'success' => true,
+                'violation_count' => $attempt->violation_count,
+                'max_violations' => $maxViolations,
+                'is_auto_submitted' => false,
+            ]);
+        }
+
+        $totalQuestions = $content->questions->count();
+        $correctAnswers = $attempt->answers()->where('is_correct', true)->count();
+        $score = $totalQuestions > 0 ? ($correctAnswers / $totalQuestions) * 100 : 0;
+        $isPassed = $score >= 70;
+
+        $attempt->update([
+            'correct_answers' => $correctAnswers,
+            'score' => round($score),
+            'is_passed' => $isPassed,
+            'is_auto_submitted' => true,
+            'auto_submit_reason' => 'max_violations_reached',
+            'completed_at' => now(),
+        ]);
+
+        if ($isPassed) {
+            $progress = UserContentProgress::where('user_id', Auth::id())
+                ->where('content_id', $contentId)
+                ->where('user_course_id', $userCourse->id)
+                ->first();
+
+            if (!$progress) {
+                UserContentProgress::create([
+                    'user_id' => Auth::id(),
+                    'content_id' => $contentId,
+                    'user_course_id' => $userCourse->id,
+                    'is_completed' => true,
+                    'completed_at' => now(),
+                ]);
+            } else if (!$progress->is_completed) {
+                $progress->update([
+                    'is_completed' => true,
+                    'completed_at' => now(),
+                ]);
+            }
+
+            $this->updateCourseProgress($userCourse);
+        }
+
+        return response()->json([
+            'success' => true,
+            'is_auto_submitted' => true,
+            'message' => 'Kuis otomatis dikirim karena melebihi batas pelanggaran integritas.',
+            'is_passed' => $isPassed,
+            'score' => round($score),
+            'correct_answers' => $correctAnswers,
+            'total_questions' => $totalQuestions,
+            'progress' => $userCourse->fresh()->progress_percentage,
+            'auto_submit_reason' => 'max_violations_reached',
+        ]);
     }
 
     public function markContentComplete($kursusId, $contentId)
@@ -268,13 +433,32 @@ class ListKursusController extends Controller
 
         DB::beginTransaction();
         try {
-            $attempt = UserQuizAttempt::create([
-                'user_id' => Auth::id(),
-                'content_id' => $contentId,
-                'user_course_id' => $userCourse->id,
-                'total_questions' => $content->questions->count(),
-                'started_at' => now(),
-            ]);
+            $attempt = null;
+            if ($request->filled('attempt_id')) {
+                $attempt = UserQuizAttempt::where('id', $request->attempt_id)
+                    ->where('user_id', Auth::id())
+                    ->where('content_id', $contentId)
+                    ->where('user_course_id', $userCourse->id)
+                    ->first();
+            }
+
+            if (!$attempt) {
+                $attempt = UserQuizAttempt::create([
+                    'user_id' => Auth::id(),
+                    'content_id' => $contentId,
+                    'user_course_id' => $userCourse->id,
+                    'total_questions' => $content->questions->count(),
+                    'started_at' => now(),
+                    'violation_count' => 0,
+                    'is_auto_submitted' => false,
+                ]);
+            }
+
+            if ($attempt->completed_at) {
+                return response()->json(['error' => 'Attempt already completed'], 422);
+            }
+
+            UserQuizAnswer::where('quiz_attempt_id', $attempt->id)->delete();
 
             $correctAnswers = 0;
 
@@ -307,6 +491,8 @@ class ListKursusController extends Controller
                 'correct_answers' => $correctAnswers,
                 'score' => round($score),
                 'is_passed' => $isPassed,
+                'is_auto_submitted' => false,
+                'auto_submit_reason' => null,
                 'completed_at' => now(),
             ]);
 
@@ -343,6 +529,8 @@ class ListKursusController extends Controller
                 'correct_answers' => $correctAnswers,
                 'total_questions' => $content->questions->count(),
                 'progress' => $userCourse->fresh()->progress_percentage,
+                'is_auto_submitted' => false,
+                'violation_count' => $attempt->violation_count,
             ]);
         } catch (\Exception $e) {
             DB::rollBack();

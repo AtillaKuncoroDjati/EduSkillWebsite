@@ -10,8 +10,8 @@ use App\Http\Controllers\User\DashboardController;
 use App\Http\Controllers\User\ProfileController;
 
 use App\Http\Controllers\Admin\KursusController;
-use App\Http\Controllers\Admin\MateriController;
 use App\Http\Controllers\Admin\ContentController;
+use App\Http\Controllers\Admin\QuizIntegrityController;
 use App\Http\Controllers\Admin\ModuleController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\System\BackupController;
@@ -110,6 +110,11 @@ Route::middleware(['auth', 'check.access'])->group(function () {
         Route::post('content/delete', [ContentController::class, 'delete'])->name('admin.content.delete');
         Route::post('content/upload-image', [ContentController::class, 'uploadImage'])->name('admin.content.uploadImage');
 
+
+        Route::get('integrity', [QuizIntegrityController::class, 'index'])->name('admin.kursus.integrity.index');
+        Route::post('integrity/request', [QuizIntegrityController::class, 'request'])->name('admin.kursus.integrity.request');
+        Route::get('integrity/{attempt}/detail', [QuizIntegrityController::class, 'detail'])->name('admin.kursus.integrity.detail');
+
         /*
         |--------------------------------------------------------------------------
         | Route Kursus
@@ -162,6 +167,8 @@ Route::middleware(['auth', 'check.access'])->group(function () {
 
         Route::get('{kursus}/content/{content}', [ListKursusController::class, 'getContent'])->name('user.kursus.content');
         Route::post('{kursus}/content/{content}/complete', [ListKursusController::class, 'markContentComplete'])->name('user.kursus.content.complete');
+        Route::post('{kursus}/quiz/{content}/start', [ListKursusController::class, 'startQuizAttempt'])->name('user.kursus.quiz.start');
+        Route::post('{kursus}/quiz/{content}/integrity-log', [ListKursusController::class, 'logIntegrityViolation'])->name('user.kursus.quiz.integrity_log');
         Route::post('{kursus}/quiz/{content}/submit', [ListKursusController::class, 'submitQuiz'])->name('user.kursus.quiz.submit');
     });
 
