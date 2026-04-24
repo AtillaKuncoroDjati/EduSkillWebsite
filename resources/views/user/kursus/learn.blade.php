@@ -480,13 +480,13 @@
                 html += '</ul>';
                 html += '<p class="mb-3" id="integrity-counter">Pelanggaran: 0/' + integrity.max_violations + '</p>';
                 html +=
-                    '<button class="btn btn-warning" type="button" onclick="startQuizWithIntegrity('' + data.id + '', ' +
+                    '<button class="btn btn-warning" type="button" onclick="startQuizWithIntegrity(\'' + data.id + '\', ' +
                     integrity.require_fullscreen + ', ' + integrity.max_violations + ')">Saya Mengerti & Mulai Kuis</button>';
                 html += '</div></div>';
                 html += '<div id="quiz-form-wrapper" style="display:none;">';
             }
 
-            html += '<form id="quiz-form" onsubmit="submitQuiz(event, '' + data.id + '')">';
+            html += '<form id="quiz-form" onsubmit="submitQuiz(event, \'' + data.id + '\')">';
 
             data.questions.forEach(function(question, index) {
                 html += '<div class="card mb-3"><div class="card-body">';
