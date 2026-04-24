@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Artisan;
 
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\OneTimePasswordController;
+use App\Http\Controllers\Guest\ExplorePathController;
 
 use App\Http\Controllers\User\DashboardController;
 use App\Http\Controllers\User\ProfileController;
@@ -25,9 +26,12 @@ use App\Http\Controllers\User\ListKursusController;
 */
 
 // [HOME] | Tampilan untuk halaman utama
-Route::get('/', function () {
-    return to_route('auth.view');
-})->name('home.index');
+Route::get('/', [ExplorePathController::class, 'landing'])->name('home.index');
+Route::prefix('explore-your-path')->group(function () {
+    Route::get('/', [ExplorePathController::class, 'questionnaire'])->name('explore.index');
+    Route::post('/submit', [ExplorePathController::class, 'submit'])->name('explore.submit');
+    Route::get('/result', [ExplorePathController::class, 'result'])->name('explore.result');
+});
 
 // [AUTH] | Grup route untuk authentikasi
 Route::prefix('auth')->group(function () {
