@@ -107,9 +107,39 @@
             box-shadow: 0 16px 30px rgba(79, 70, 229, 0.35);
         }
 
+        .cta-btn-explore {
+            font-size: 1.05rem;
+            font-weight: 700;
+            padding: .9rem 1.6rem;
+            min-width: min(100%, 360px);
+        }
+
+        .cta-secondary-row {
+            max-width: 360px;
+            margin: .75rem auto 0;
+        }
+
+        .cta-btn-register {
+            color: #fff;
+            background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
+            border-color: #f59e0b;
+            box-shadow: 0 10px 20px rgba(249, 115, 22, .22);
+        }
+
+        .cta-btn-register:hover {
+            color: #fff;
+            border-color: #ea580c;
+            background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+            box-shadow: 0 14px 24px rgba(234, 88, 12, .3);
+        }
+
         @media (max-width: 575.98px) {
             .explore-card {
                 border-radius: 1rem;
+            }
+
+            .cta-btn-explore {
+                width: 100%;
             }
         }
 
@@ -123,6 +153,12 @@
             color: #c7d2fe;
             background-color: rgba(99, 102, 241, .22);
             border-color: rgba(129, 140, 248, .45);
+        }
+
+        [data-bs-theme="dark"] .cta-btn-register {
+            color: #fff;
+            background: linear-gradient(135deg, #fb923c 0%, #f97316 100%);
+            border-color: #fb923c;
         }
     </style>
 </head>
@@ -152,12 +188,19 @@
                             Jawab 5 pertanyaan singkat untuk menemukan kategori belajar yang paling cocok untukmu.
                         </p>
 
-                        <div class="d-grid gap-2 d-sm-flex justify-content-sm-center align-items-stretch">
-                            <a href="{{ route('explore.index') }}" class="btn btn-primary px-4 py-2 cta-btn cta-btn-primary">
+                        <div class="d-grid justify-content-center">
+                            <a href="{{ route('explore.index') }}"
+                                class="btn btn-primary cta-btn cta-btn-primary cta-btn-explore mx-auto">
                                 <i class="ti ti-compass me-1"></i>Explore Your Path
                             </a>
-                            <a href="{{ route('auth.view') }}" class="btn btn-outline-secondary px-4 py-2 cta-btn">Login</a>
-                            <a href="{{ route('auth.register.view') }}" class="btn btn-outline-primary px-4 py-2 cta-btn">Register</a>
+                        </div>
+                        <div class="row g-2 cta-secondary-row">
+                            <div class="col-6 d-grid">
+                                <a href="{{ route('auth.view') }}" class="btn btn-outline-secondary cta-btn">Login</a>
+                            </div>
+                            <div class="col-6 d-grid">
+                                <a href="{{ route('auth.register.view') }}" class="btn cta-btn cta-btn-register">Register</a>
+                            </div>
                         </div>
                     </div>
                 </div>
