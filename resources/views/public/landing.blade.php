@@ -119,20 +119,6 @@
             margin: .75rem auto 0;
         }
 
-        .cta-btn-register {
-            color: #fff;
-            background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
-            border-color: #f59e0b;
-            box-shadow: 0 10px 20px rgba(249, 115, 22, .22);
-        }
-
-        .cta-btn-register:hover {
-            color: #fff;
-            border-color: #ea580c;
-            background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
-            box-shadow: 0 14px 24px rgba(234, 88, 12, .3);
-        }
-
         @media (max-width: 575.98px) {
             .explore-card {
                 border-radius: 1rem;
@@ -155,11 +141,6 @@
             border-color: rgba(129, 140, 248, .45);
         }
 
-        [data-bs-theme="dark"] .cta-btn-register {
-            color: #fff;
-            background: linear-gradient(135deg, #fb923c 0%, #f97316 100%);
-            border-color: #fb923c;
-        }
     </style>
 </head>
 
@@ -199,7 +180,7 @@
                                 <a href="{{ route('auth.view') }}" class="btn btn-outline-secondary cta-btn">Login</a>
                             </div>
                             <div class="col-6 d-grid">
-                                <a href="{{ route('auth.register.view') }}" class="btn cta-btn cta-btn-register">Register</a>
+                                <a href="{{ route('auth.register.view') }}" class="btn btn-outline-primary cta-btn">Register</a>
                             </div>
                         </div>
                     </div>
