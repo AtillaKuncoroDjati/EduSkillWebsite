@@ -16,6 +16,39 @@
             box-shadow: 0 16px 40px rgba(17, 23, 41, 0.12);
         }
 
+        .course-suggestion-card {
+            overflow: hidden;
+            transition: transform .2s ease, box-shadow .2s ease;
+        }
+
+        .course-suggestion-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px rgba(79, 70, 229, .15);
+        }
+
+        .course-thumb {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            object-fit: cover;
+            display: block;
+            background-color: #f4f6ff;
+        }
+
+        .course-thumb-fallback {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #4f46e5, #6366f1);
+            color: #fff;
+        }
+
+        .course-thumb-fallback i {
+            font-size: 2.5rem;
+            opacity: .85;
+        }
+
         [data-bs-theme="dark"] .result-card {
             background: rgba(33, 37, 41, .92);
             border-color: rgba(129, 140, 248, .32);
@@ -25,6 +58,10 @@
         [data-bs-theme="dark"] .result-card .card.border {
             background: rgba(43, 47, 54, .95);
             border-color: rgba(129, 140, 248, .32) !important;
+        }
+
+        [data-bs-theme="dark"] .course-thumb {
+            background-color: rgba(54, 59, 68, .95);
         }
     </style>
 </head>
@@ -65,7 +102,20 @@
                                 <div class="row g-3">
                                     @foreach ($result['suggested_courses'] as $course)
                                         <div class="col-md-6">
-                                            <div class="card border h-100">
+                                            <div class="card border h-100 course-suggestion-card">
+                                                @if (!empty($course['thumbnail']))
+                                                    <img src="{{ asset('uploads/kursus/' . $course['thumbnail']) }}"
+                                                        alt="Thumbnail {{ $course['title'] }}"
+                                                        class="course-thumb"
+                                                        onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                                    <div class="course-thumb-fallback" style="display:none;">
+                                                        <i class="ti ti-photo"></i>
+                                                    </div>
+                                                @else
+                                                    <div class="course-thumb-fallback">
+                                                        <i class="ti ti-photo"></i>
+                                                    </div>
+                                                @endif
                                                 <div class="card-body">
                                                     <h6 class="mb-1">{{ $course['title'] }}</h6>
                                                     <small class="text-muted d-block mb-2">Level: {{ ucfirst($course['difficulty']) }}</small>

@@ -91,7 +91,7 @@
         }
 
         .cta-btn {
-            transition: transform .22s ease, box-shadow .22s ease, background-color .22s ease;
+            transition: transform .22s ease, box-shadow .22s ease, background-color .22s ease, border-color .22s ease, color .22s ease;
         }
 
         .cta-btn:hover {
@@ -105,6 +105,31 @@
 
         .cta-btn-primary:hover {
             box-shadow: 0 16px 30px rgba(79, 70, 229, 0.35);
+        }
+
+        .cta-btn-explore {
+            font-size: 1.05rem;
+            font-weight: 600;
+            padding: 1rem 1.75rem;
+            border-radius: .85rem;
+        }
+
+        .cta-auth-btn {
+            font-weight: 600;
+            padding: .7rem 1rem;
+            border-radius: .75rem;
+            border: 1.5px solid #d0d7e2;
+            background: #fff;
+            color: #374151;
+            transition: background-color .2s ease, border-color .2s ease, color .2s ease, transform .22s ease, box-shadow .22s ease;
+        }
+
+        .cta-auth-btn:hover {
+            background: #f4f6ff;
+            border-color: #4f46e5;
+            color: #4f46e5;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(79, 70, 229, .14);
         }
 
         @media (max-width: 575.98px) {
@@ -123,6 +148,19 @@
             color: #c7d2fe;
             background-color: rgba(99, 102, 241, .22);
             border-color: rgba(129, 140, 248, .45);
+        }
+
+        [data-bs-theme="dark"] .cta-auth-btn {
+            background: rgba(255, 255, 255, .04);
+            color: #e5e7eb;
+            border-color: rgba(229, 231, 235, .3);
+        }
+
+        [data-bs-theme="dark"] .cta-auth-btn:hover {
+            background: rgba(99, 102, 241, .15);
+            color: #fff;
+            border-color: rgba(129, 140, 248, .7);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, .4);
         }
     </style>
 </head>
@@ -152,12 +190,25 @@
                             Jawab 5 pertanyaan singkat untuk menemukan kategori belajar yang paling cocok untukmu.
                         </p>
 
-                        <div class="d-grid gap-2 d-sm-flex justify-content-sm-center align-items-stretch">
-                            <a href="{{ route('explore.index') }}" class="btn btn-primary px-4 py-2 cta-btn cta-btn-primary">
-                                <i class="ti ti-compass me-1"></i>Explore Your Path
-                            </a>
-                            <a href="{{ route('auth.view') }}" class="btn btn-outline-secondary px-4 py-2 cta-btn">Login</a>
-                            <a href="{{ route('auth.register.view') }}" class="btn btn-outline-primary px-4 py-2 cta-btn">Register</a>
+                        <div class="col-md-9 mx-auto">
+                            <div class="d-grid mb-3">
+                                <a href="{{ route('explore.index') }}"
+                                    class="btn btn-primary cta-btn cta-btn-primary cta-btn-explore">
+                                    <i class="ti ti-compass me-1"></i>Explore Your Path
+                                </a>
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <a href="{{ route('auth.view') }}" class="btn cta-auth-btn w-100">
+                                        <i class="ti ti-login-2 me-1"></i>Login
+                                    </a>
+                                </div>
+                                <div class="col-6">
+                                    <a href="{{ route('auth.register.view') }}" class="btn cta-auth-btn w-100">
+                                        <i class="ti ti-user-plus me-1"></i>Register
+                                    </a>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

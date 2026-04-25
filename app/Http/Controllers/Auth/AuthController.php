@@ -25,21 +25,41 @@ class AuthController extends Controller
         return view('auth.login');
     }
 
+    /**
+     * Verifikasi token reCAPTCHA.
+     * Jika RECAPTCHA_SECRET_KEY tidak diisi di .env, verifikasi di-skip
+     * sehingga login/register tetap berjalan saat development lokal.
+     */
+    private function verifyRecaptcha(Request $request): bool
+    {
+        $secret = config('recaptcha.secret_key');
+
+        if (empty($secret)) {
+            return true;
+        }
+
+        $response = $request->input('g-recaptcha-response');
+        if (empty($response)) {
+            return false;
+        }
+
+        $verify = @file_get_contents("https://www.google.com/recaptcha/api/siteverify?secret={$secret}&response={$response}");
+        if ($verify === false) {
+            return false;
+        }
+
+        $data = json_decode($verify, true);
+        return !empty($data['success']);
+    }
+
     public function auth_login(Request $request)
     {
         $request->validate([
             'login' => 'required',
             'password' => 'required',
-            'g-recaptcha-response' => 'required',
         ]);
 
-        $recaptchaSecret = config('recaptcha.secret_key');
-        $recaptchaResponse = $request->input('g-recaptcha-response');
-
-        $verifyResponse = file_get_contents("https://www.google.com/recaptcha/api/siteverify?secret={$recaptchaSecret}&response={$recaptchaResponse}");
-        $responseData = json_decode($verifyResponse, true);
-
-        if (!$responseData['success']) {
+        if (!$this->verifyRecaptcha($request)) {
             session()->flash('failed_message', 'Verifikasi reCAPTCHA gagal. Silakan coba lagi.');
             return back()->withInput($request->only('login'));
         }
@@ -115,7 +135,6 @@ class AuthController extends Controller
             'email' => 'required|email|max:255|unique:users,email',
             'phone' => 'nullable|string|max:20|unique:users,phone',
             'password' => 'required|string|min:8|confirmed',
-            'g-recaptcha-response' => 'required',
         ], [
             'name.required' => 'Nama lengkap wajib diisi.',
             'email.required' => 'Alamat email wajib diisi.',
@@ -124,16 +143,9 @@ class AuthController extends Controller
             'password.required' => 'Kata sandi wajib diisi.',
             'password.min' => 'Kata sandi minimal terdiri dari 8 karakter.',
             'password.confirmed' => 'Konfirmasi kata sandi tidak sesuai.',
-            'g-recaptcha-response.required' => 'Verifikasi reCAPTCHA wajib diisi.',
         ]);
 
-        $recaptchaSecret = config('recaptcha.secret_key');
-        $recaptchaResponse = $request->input('g-recaptcha-response');
-
-        $verifyResponse = file_get_contents("https://www.google.com/recaptcha/api/siteverify?secret={$recaptchaSecret}&response={$recaptchaResponse}");
-        $responseData = json_decode($verifyResponse, true);
-
-        if (!$responseData['success']) {
+        if (!$this->verifyRecaptcha($request)) {
             session()->flash('failed_message', 'Verifikasi reCAPTCHA gagal. Silakan coba lagi.');
             return back()->withInput($request->only('login'));
         }

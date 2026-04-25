@@ -83,7 +83,7 @@ class ExplorePathController extends Controller
             ->where('category', $topCategory)
             ->latest()
             ->limit(3)
-            ->get(['id', 'title', 'difficulty', 'short_description']);
+            ->get(['id', 'title', 'difficulty', 'short_description', 'thumbnail']);
 
         session([
             'explore_path_result' => [

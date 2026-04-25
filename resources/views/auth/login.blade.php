@@ -105,11 +105,17 @@
                         </div>
 
                         <div class="d-grid">
-                            <button class="btn btn-primary g-recaptcha"
-                                data-sitekey="{{ config('recaptcha.site_key') }}" data-callback="onSubmit"
-                                data-action="submit">
-                                Masuk
-                            </button>
+                            @if (config('recaptcha.site_key'))
+                                <button type="submit" class="btn btn-primary g-recaptcha"
+                                    data-sitekey="{{ config('recaptcha.site_key') }}" data-callback="onSubmit"
+                                    data-action="submit">
+                                    Masuk
+                                </button>
+                            @else
+                                <button type="submit" class="btn btn-primary">
+                                    Masuk
+                                </button>
+                            @endif
                         </div>
                     </form>
 
@@ -129,8 +135,10 @@
     <script src="{{ asset('assets/js/app.js') }}"></script>
     <!-- Plugins js -->
     <script src="{{ asset('assets/plugins/jquery-confirm/jquery-confirm.min.js') }}"></script>
-    <!-- Google reCAPTCHA -->
-    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    @if (config('recaptcha.site_key'))
+        <!-- Google reCAPTCHA -->
+        <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    @endif
     <!-- Page js -->
     <script>
         function onSubmit(token) {
