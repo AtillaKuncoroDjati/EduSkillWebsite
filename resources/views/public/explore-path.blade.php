@@ -100,70 +100,43 @@
         }
 
         .option-radio {
-            position: absolute;
-            opacity: 0;
-            inset: 0;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #98a2b3;
+            border-radius: 999px;
+            background: #fff;
+            margin-top: .2rem;
+            flex-shrink: 0;
+            appearance: none;
+            -webkit-appearance: none;
+            transition: all .2s ease;
         }
 
         .option-item {
-            display: block;
+            display: flex;
+            align-items: flex-start;
+            gap: .65rem;
             cursor: pointer;
-        }
-
-        .option-card {
             width: 100%;
             border: 1px solid #d0d7e2;
             border-radius: .85rem;
             padding: .85rem 1rem;
-            display: flex;
-            align-items: start;
-            gap: .65rem;
-            transition: all .2s ease;
-            background: #fff;
-            position: relative;
-        }
-
-        .option-card::before {
-            content: "";
-            width: 20px;
-            height: 20px;
-            border-radius: 999px;
-            border: 2px solid #98a2b3;
-            margin-top: .15rem;
-            flex-shrink: 0;
             transition: all .2s ease;
             background: #fff;
         }
 
-        .option-card::after {
-            content: "✓";
-            position: absolute;
-            right: .8rem;
-            top: 50%;
-            transform: translateY(-50%) scale(.6);
-            opacity: 0;
-            color: #fff;
-            font-size: .75rem;
-            font-weight: 700;
-            width: 20px;
-            height: 20px;
-            border-radius: 999px;
-            background: #4f46e5;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            transition: all .22s ease;
-            box-shadow: 0 8px 14px rgba(79, 70, 229, .22);
+        .option-label {
+            flex: 1;
         }
 
-        .option-item:hover .option-card {
+        .option-item:hover {
             border-color: #6d7afb;
             background: #f4f6ff;
             transform: translateY(-1px);
             box-shadow: 0 10px 16px rgba(79, 70, 229, .1);
         }
 
-        .option-radio:checked + .option-card {
+        .option-item.is-selected {
             border-color: #4f46e5;
             border-width: 2px;
             background: linear-gradient(180deg, #eef2ff 0%, #e0e7ff 100%);
@@ -171,18 +144,13 @@
             transform: translateY(-1px);
         }
 
-        .option-radio:checked + .option-card::before {
-            border-color: #4f46e5;
+        .option-radio:checked {
+            border-color: #111827;
             background: radial-gradient(circle, #111827 42%, #fff 45%);
-            box-shadow: 0 0 0 4px rgba(79, 70, 229, .18);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, .18);
         }
 
-        .option-radio:checked + .option-card::after {
-            opacity: 1;
-            transform: translateY(-50%) scale(1);
-        }
-
-        .option-radio:focus-visible + .option-card {
+        .option-radio:focus-visible {
             outline: 3px solid rgba(79, 70, 229, .28);
             outline-offset: 1px;
         }
@@ -213,32 +181,32 @@
             border-color: rgba(129, 140, 248, .27);
         }
 
-        [data-bs-theme="dark"] .option-card {
+        [data-bs-theme="dark"] .option-item {
             background: rgba(54, 59, 68, .95);
             border-color: rgba(148, 163, 184, .45);
             color: #e9ecef;
         }
 
-        [data-bs-theme="dark"] .option-item:hover .option-card {
+        [data-bs-theme="dark"] .option-item:hover {
             background: rgba(64, 70, 82, .95);
             border-color: rgba(129, 140, 248, .6);
         }
 
-        [data-bs-theme="dark"] .option-radio:checked + .option-card {
+        [data-bs-theme="dark"] .option-item.is-selected {
             background: linear-gradient(180deg, rgba(79, 70, 229, .35) 0%, rgba(67, 56, 202, .35) 100%);
             border-color: rgba(129, 140, 248, .9);
             box-shadow: 0 0 0 3px rgba(129, 140, 248, .3), 0 12px 24px rgba(14, 17, 30, .35);
         }
 
-        [data-bs-theme="dark"] .option-radio:checked + .option-card::before {
+        [data-bs-theme="dark"] .option-radio {
             border-color: #a5b4fc;
-            background: radial-gradient(circle, #020617 42%, rgba(43, 47, 54, .95) 45%);
-            box-shadow: 0 0 0 4px rgba(129, 140, 248, .25);
+            background: rgba(31, 41, 55, .8);
         }
 
-        [data-bs-theme="dark"] .option-card::after {
-            background: #818cf8;
-            box-shadow: 0 10px 18px rgba(129, 140, 248, .25);
+        [data-bs-theme="dark"] .option-radio:checked {
+            border-color: #020617;
+            background: radial-gradient(circle, #020617 42%, rgba(43, 47, 54, .95) 45%);
+            box-shadow: 0 0 0 4px rgba(129, 140, 248, .25);
         }
     </style>
 </head>
@@ -285,13 +253,13 @@
                                             <span>{{ $question['text'] }}</span>
                                         </h5>
                                         @foreach ($question['options'] as $option)
-                                            <label class="mb-2 position-relative option-item" for="q{{ $index }}_{{ $loop->index }}">
+                                            <label class="mb-2 option-item" for="q{{ $index }}_{{ $loop->index }}">
                                                 <input class="option-radio"
                                                     name="answers[{{ $index }}]"
                                                     id="q{{ $index }}_{{ $loop->index }}"
                                                     value="{{ $loop->iteration }}"
                                                     {{ old('answers.' . $index) == (string) $loop->iteration ? 'checked' : '' }} required>
-                                                <span class="option-card">{{ $option }}</span>
+                                                <span class="option-label">{{ $option }}</span>
                                             </label>
                                         @endforeach
                                     </div>
@@ -321,7 +289,7 @@
     <script>
         function updateAnswerProgress() {
             const totalQuestions = {{ count($questions) }};
-            const answered = document.querySelectorAll('.question-card input[type="radio"]:checked').length;
+            const answered = document.querySelectorAll('.question-card input.option-radio:checked').length;
             const progress = Math.round((answered / totalQuestions) * 100);
 
             const progressBar = document.getElementById('answer-progress-bar');
@@ -332,10 +300,31 @@
             progressText.textContent = 'Progress: ' + answered + '/' + totalQuestions + ' pertanyaan terjawab';
         }
 
-        document.addEventListener('DOMContentLoaded', function() {
-            document.querySelectorAll('.question-card input[type="radio"]').forEach(function(radio) {
-                radio.addEventListener('change', updateAnswerProgress);
+        function syncSelectedOptionState() {
+            document.querySelectorAll('.question-card').forEach(function(card) {
+                card.querySelectorAll('.option-item').forEach(function(optionItem) {
+                    optionItem.classList.remove('is-selected');
+                });
+
+                const checkedInput = card.querySelector('input.option-radio:checked');
+                if (checkedInput) {
+                    const selectedItem = checkedInput.closest('.option-item');
+                    if (selectedItem) {
+                        selectedItem.classList.add('is-selected');
+                    }
+                }
             });
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.question-card input.option-radio').forEach(function(radio) {
+                radio.addEventListener('change', function() {
+                    syncSelectedOptionState();
+                    updateAnswerProgress();
+                });
+            });
+
+            syncSelectedOptionState();
             updateAnswerProgress();
         });
     </script>
