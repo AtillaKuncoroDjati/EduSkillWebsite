@@ -146,6 +146,8 @@ Route::middleware(['auth', 'check.access'])->group(function () {
         Route::post('update', [UserController::class, 'update'])->name('admin.user.update');
         Route::post('delete', [UserController::class, 'delete'])->name('admin.user.delete');
         Route::post('toggle-status', [UserController::class, 'toggleStatus'])->name('admin.user.toggleStatus');
+        Route::post('suspend', [UserController::class, 'suspend'])->name('admin.user.suspend');
+        Route::post('unsuspend', [UserController::class, 'unsuspend'])->name('admin.user.unsuspend');
     });
 
     Route::prefix('system/backup')->middleware('access:admin')->group(function () {

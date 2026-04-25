@@ -78,6 +78,15 @@ class AuthController extends Controller
                 return back()->withInput($request->only('login'));
             }
 
+            if ($user->isSuspended()) {
+                auth()->logout();
+                $label = $user->suspensionRemainingLabel();
+                $reason = $user->suspension_reason ? ' Alasan: ' . $user->suspension_reason . '.' : '';
+                session()->flash('failed_message', "Akun Anda sedang disuspend selama {$label} lagi.{$reason} Silakan coba lagi setelah periode suspensi berakhir.");
+
+                return back()->withInput($request->only('login'));
+            }
+
             $request->session()->regenerate();
 
             $agent = new Agent();

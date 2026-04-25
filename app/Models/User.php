@@ -34,6 +34,11 @@ class User extends Authenticatable
         'is_email_notification_enabled',
         'is_whatsapp_notification_enabled',
         'active_device',
+        'is_suspended',
+        'suspended_until',
+        'suspension_reason',
+        'suspended_by',
+        'suspended_at',
     ];
 
     /**
@@ -60,6 +65,9 @@ class User extends Authenticatable
         'is_email_notification_enabled' => 'boolean',
         'is_whatsapp_notification_enabled' => 'boolean',
         'password' => 'hashed',
+        'is_suspended' => 'boolean',
+        'suspended_until' => 'datetime',
+        'suspended_at' => 'datetime',
     ];
 
     /**
@@ -106,6 +114,44 @@ class User extends Authenticatable
     // ============================================
     // HELPER METHODS
     // ============================================
+
+    public function isSuspended(): bool
+    {
+        if (!$this->is_suspended) {
+            return false;
+        }
+        if ($this->suspended_until === null) {
+            return true;
+        }
+        return now()->lt($this->suspended_until);
+    }
+
+    public function suspensionRemainingMinutes(): int
+    {
+        if (!$this->isSuspended() || $this->suspended_until === null) {
+            return 0;
+        }
+        return (int) now()->diffInMinutes($this->suspended_until, false);
+    }
+
+    public function suspensionRemainingLabel(): string
+    {
+        $minutes = $this->suspensionRemainingMinutes();
+        if ($minutes <= 0) {
+            return '0 menit';
+        }
+        if ($minutes < 60) {
+            return $minutes . ' menit';
+        }
+        $hours = intdiv($minutes, 60);
+        $remaining = $minutes % 60;
+        if ($hours < 24) {
+            return $remaining > 0 ? "{$hours} jam {$remaining} menit" : "{$hours} jam";
+        }
+        $days = intdiv($hours, 24);
+        $remainingHours = $hours % 24;
+        return $remainingHours > 0 ? "{$days} hari {$remainingHours} jam" : "{$days} hari";
+    }
 
     /**
      * Cek apakah user sudah enroll kursus tertentu
