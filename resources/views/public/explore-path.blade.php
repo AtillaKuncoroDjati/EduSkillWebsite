@@ -9,6 +9,159 @@
     <link href="{{ asset('assets/css/vendor.min.css') }}" rel="stylesheet" type="text/css" />
     <link href="{{ asset('assets/css/app.min.css') }}" rel="stylesheet" type="text/css" id="app-style" />
     <link href="{{ asset('assets/css/icons.min.css') }}" rel="stylesheet" type="text/css" />
+    <style>
+        .questionnaire-shell {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .questionnaire-shell::before,
+        .questionnaire-shell::after {
+            content: "";
+            position: absolute;
+            border-radius: 999px;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .questionnaire-shell::before {
+            width: 260px;
+            height: 260px;
+            top: -90px;
+            right: -80px;
+            background: radial-gradient(circle, rgba(84, 74, 245, 0.15) 0%, rgba(84, 74, 245, 0) 70%);
+        }
+
+        .questionnaire-shell::after {
+            width: 300px;
+            height: 300px;
+            left: -130px;
+            bottom: -140px;
+            background: radial-gradient(circle, rgba(11, 191, 210, 0.13) 0%, rgba(11, 191, 210, 0) 70%);
+        }
+
+        .questionnaire-card {
+            position: relative;
+            z-index: 1;
+            border-radius: 1.25rem;
+            border: 1px solid rgba(84, 74, 245, .14);
+            background: rgba(255, 255, 255, .95);
+            box-shadow: 0 18px 45px rgba(17, 23, 41, 0.12);
+            backdrop-filter: blur(6px);
+        }
+
+        .brand-logo {
+            height: clamp(60px, 9vw, 84px);
+            width: auto;
+            filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.08));
+        }
+
+        .intro-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            font-size: .75rem;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            color: #4f46e5;
+            background-color: rgba(79, 70, 229, .1);
+            border: 1px solid rgba(79, 70, 229, .2);
+            border-radius: 999px;
+            padding: .35rem .75rem;
+            font-weight: 700;
+        }
+
+        .question-card {
+            border: 1px solid rgba(84, 74, 245, .15);
+            border-radius: 1rem;
+            box-shadow: 0 6px 18px rgba(22, 28, 45, .06);
+            transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+        }
+
+        .question-card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(84, 74, 245, .35);
+            box-shadow: 0 12px 24px rgba(22, 28, 45, .09);
+        }
+
+        .question-number {
+            width: 34px;
+            height: 34px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: #fff;
+            background: linear-gradient(135deg, #4f46e5, #6366f1);
+            box-shadow: 0 8px 16px rgba(79, 70, 229, .3);
+            margin-right: .5rem;
+            flex-shrink: 0;
+        }
+
+        .option-radio {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .option-card {
+            cursor: pointer;
+            width: 100%;
+            border: 1px solid #dee2e6;
+            border-radius: .85rem;
+            padding: .75rem .95rem;
+            display: flex;
+            align-items: start;
+            gap: .65rem;
+            transition: all .2s ease;
+            background: #fff;
+        }
+
+        .option-card::before {
+            content: "";
+            width: 18px;
+            height: 18px;
+            border-radius: 999px;
+            border: 2px solid #adb5bd;
+            margin-top: .15rem;
+            flex-shrink: 0;
+            transition: all .2s ease;
+            background: #fff;
+        }
+
+        .option-card:hover {
+            border-color: #818cf8;
+            background: #f8f9ff;
+            transform: translateY(-1px);
+            box-shadow: 0 8px 14px rgba(79, 70, 229, .09);
+        }
+
+        .option-radio:checked+.option-card {
+            border-color: #4f46e5;
+            background: #eef0ff;
+            box-shadow: 0 10px 20px rgba(79, 70, 229, .15);
+        }
+
+        .option-radio:checked+.option-card::before {
+            border-color: #4f46e5;
+            background: radial-gradient(circle, #4f46e5 47%, #fff 52%);
+        }
+
+        .option-radio:focus-visible+.option-card {
+            outline: 3px solid rgba(79, 70, 229, .22);
+            outline-offset: 1px;
+        }
+
+        .btn-soft {
+            transition: transform .2s ease, box-shadow .2s ease;
+        }
+
+        .btn-soft:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 16px rgba(18, 23, 38, 0.12);
+        }
+    </style>
 </head>
 
 <body>
@@ -16,28 +169,42 @@
         <div class="container">
             <div class="row justify-content-center">
                 <div class="col-xl-8 col-lg-10">
-                    <div class="card p-4 p-md-5">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h3 class="mb-0 fw-bold">Explore Your Path</h3>
-                            <a href="{{ route('auth.view') }}" class="btn btn-sm btn-outline-secondary">Skip to Login</a>
+                    <div class="card p-4 p-md-5 questionnaire-card questionnaire-shell">
+                        <div class="text-center mb-4">
+                            <img src="{{ asset('assets/media/logo/logo-dark.png') }}" alt="EduSkill" class="brand-logo mb-3">
+                            <div>
+                                <span class="intro-badge"><i class="ti ti-sparkles"></i> Personalized Learning Start</span>
+                            </div>
+                            <h2 class="fw-bold mt-3 mb-2">Explore Your Path</h2>
+                            <p class="text-muted mb-0">Jawab 5 pertanyaan singkat untuk menemukan kategori belajar yang paling cocok untukmu.</p>
                         </div>
-                        <p class="text-muted">Jawab 5 pertanyaan berikut untuk mendapatkan rekomendasi kategori belajar.</p>
+
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                            <small class="fw-semibold text-primary" id="progress-text">Progress: 0/5 pertanyaan terjawab</small>
+                            <a href="{{ route('auth.view') }}" class="btn btn-sm btn-outline-secondary btn-soft">Skip to Login</a>
+                        </div>
+                        <div class="progress mb-4" style="height: 8px;">
+                            <div class="progress-bar bg-primary" id="answer-progress-bar" role="progressbar" style="width: 0%"></div>
+                        </div>
 
                         <form method="POST" action="{{ route('explore.submit') }}">
                             @csrf
 
                             @foreach ($questions as $index => $question)
-                                <div class="card border mb-3">
+                                <div class="card question-card mb-3">
                                     <div class="card-body">
-                                        <h5 class="mb-3">{{ $index + 1 }}. {{ $question['text'] }}</h5>
+                                        <h5 class="mb-3 d-flex align-items-center">
+                                            <span class="question-number">{{ $index + 1 }}</span>
+                                            <span>{{ $question['text'] }}</span>
+                                        </h5>
                                         @foreach ($question['options'] as $value => $option)
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input" type="radio"
+                                            <div class="mb-2 position-relative">
+                                                <input class="option-radio"
                                                     name="answers[{{ $index }}]"
                                                     id="q{{ $index }}_{{ $loop->index }}"
                                                     value="{{ $value }}"
                                                     {{ old('answers.' . $index) === $value ? 'checked' : '' }} required>
-                                                <label class="form-check-label" for="q{{ $index }}_{{ $loop->index }}">{{ $option }}</label>
+                                                <label class="option-card" for="q{{ $index }}_{{ $loop->index }}">{{ $option }}</label>
                                             </div>
                                         @endforeach
                                     </div>
@@ -49,10 +216,10 @@
                             @endif
 
                             <div class="d-flex flex-wrap gap-2 justify-content-between">
-                                <a href="{{ route('home.index') }}" class="btn btn-light">Kembali</a>
+                                <a href="{{ route('home.index') }}" class="btn btn-light btn-soft">Kembali</a>
                                 <div class="d-flex gap-2">
-                                    <a href="{{ route('auth.view') }}" class="btn btn-outline-secondary">Skip to Login</a>
-                                    <button type="submit" class="btn btn-primary">Lihat Rekomendasi</button>
+                                    <a href="{{ route('auth.view') }}" class="btn btn-outline-secondary btn-soft">Skip to Login</a>
+                                    <button type="submit" class="btn btn-primary btn-soft px-4">Lihat Hasil Rekomendasi</button>
                                 </div>
                             </div>
                         </form>
@@ -64,6 +231,27 @@
 
     <script src="{{ asset('assets/js/vendor.min.js') }}"></script>
     <script src="{{ asset('assets/js/app.js') }}"></script>
+    <script>
+        function updateAnswerProgress() {
+            const totalQuestions = {{ count($questions) }};
+            const answered = document.querySelectorAll('.question-card input[type="radio"]:checked').length;
+            const progress = Math.round((answered / totalQuestions) * 100);
+
+            const progressBar = document.getElementById('answer-progress-bar');
+            const progressText = document.getElementById('progress-text');
+
+            progressBar.style.width = progress + '%';
+            progressBar.setAttribute('aria-valuenow', progress);
+            progressText.textContent = 'Progress: ' + answered + '/' + totalQuestions + ' pertanyaan terjawab';
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.question-card input[type="radio"]').forEach(function(radio) {
+                radio.addEventListener('change', updateAnswerProgress);
+            });
+            updateAnswerProgress();
+        });
+    </script>
 </body>
 
 </html>
