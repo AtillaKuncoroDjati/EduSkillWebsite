@@ -9,14 +9,40 @@
     <link href="{{ asset('assets/css/vendor.min.css') }}" rel="stylesheet" type="text/css" />
     <link href="{{ asset('assets/css/app.min.css') }}" rel="stylesheet" type="text/css" id="app-style" />
     <link href="{{ asset('assets/css/icons.min.css') }}" rel="stylesheet" type="text/css" />
+    <style>
+        .result-card {
+            border-radius: 1.25rem;
+            border: 1px solid rgba(84, 74, 245, .14);
+            box-shadow: 0 16px 40px rgba(17, 23, 41, 0.12);
+        }
+
+        [data-bs-theme="dark"] .result-card {
+            background: rgba(33, 37, 41, .92);
+            border-color: rgba(129, 140, 248, .32);
+            box-shadow: 0 18px 44px rgba(0, 0, 0, .45);
+        }
+
+        [data-bs-theme="dark"] .result-card .card.border {
+            background: rgba(43, 47, 54, .95);
+            border-color: rgba(129, 140, 248, .32) !important;
+        }
+    </style>
 </head>
 
 <body>
+    <div class="position-absolute top-0 end-0 m-3 d-flex gap-2 align-items-center" style="z-index: 1050;">
+        <button id="light-dark-mode"
+            class="btn btn-outline-primary btn-sm d-flex align-items-center justify-content-center" type="button"
+            title="Ganti Mode">
+            <i class="ti ti-moon fs-20" id="theme-icon"></i>
+        </button>
+    </div>
+
     <div class="auth-bg d-flex min-vh-100 align-items-center py-4">
         <div class="container">
             <div class="row justify-content-center">
                 <div class="col-lg-8">
-                    <div class="card p-4 p-md-5">
+                    <div class="card p-4 p-md-5 result-card">
                         <h3 class="fw-bold mb-3">Rekomendasi Belajarmu</h3>
 
                         <div class="alert alert-primary mb-3">

@@ -161,10 +161,51 @@
             transform: translateY(-1px);
             box-shadow: 0 8px 16px rgba(18, 23, 38, 0.12);
         }
+
+        [data-bs-theme="dark"] .questionnaire-card {
+            background: rgba(33, 37, 41, 0.92);
+            border-color: rgba(129, 140, 248, .32);
+            box-shadow: 0 18px 44px rgba(0, 0, 0, .45);
+        }
+
+        [data-bs-theme="dark"] .intro-badge {
+            color: #c7d2fe;
+            background-color: rgba(99, 102, 241, .22);
+            border-color: rgba(129, 140, 248, .45);
+        }
+
+        [data-bs-theme="dark"] .question-card {
+            background: rgba(43, 47, 54, .95);
+            border-color: rgba(129, 140, 248, .27);
+        }
+
+        [data-bs-theme="dark"] .option-card {
+            background: rgba(54, 59, 68, .95);
+            border-color: rgba(148, 163, 184, .45);
+            color: #e9ecef;
+        }
+
+        [data-bs-theme="dark"] .option-card:hover {
+            background: rgba(64, 70, 82, .95);
+            border-color: rgba(129, 140, 248, .6);
+        }
+
+        [data-bs-theme="dark"] .option-radio:checked+.option-card {
+            background: rgba(79, 70, 229, .25);
+            border-color: rgba(129, 140, 248, .8);
+        }
     </style>
 </head>
 
 <body>
+    <div class="position-absolute top-0 end-0 m-3 d-flex gap-2 align-items-center" style="z-index: 1050;">
+        <button id="light-dark-mode"
+            class="btn btn-outline-primary btn-sm d-flex align-items-center justify-content-center" type="button"
+            title="Ganti Mode">
+            <i class="ti ti-moon fs-20" id="theme-icon"></i>
+        </button>
+    </div>
+
     <div class="auth-bg min-vh-100 py-4">
         <div class="container">
             <div class="row justify-content-center">

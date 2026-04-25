@@ -112,10 +112,30 @@
                 border-radius: 1rem;
             }
         }
+
+        [data-bs-theme="dark"] .explore-card {
+            background: rgba(33, 37, 41, 0.9);
+            border-color: rgba(129, 140, 248, 0.3);
+            box-shadow: 0 18px 44px rgba(0, 0, 0, 0.45);
+        }
+
+        [data-bs-theme="dark"] .explore-badge {
+            color: #c7d2fe;
+            background-color: rgba(99, 102, 241, .22);
+            border-color: rgba(129, 140, 248, .45);
+        }
     </style>
 </head>
 
 <body>
+    <div class="position-absolute top-0 end-0 m-3 d-flex gap-2 align-items-center" style="z-index: 1050;">
+        <button id="light-dark-mode"
+            class="btn btn-outline-primary btn-sm d-flex align-items-center justify-content-center" type="button"
+            title="Ganti Mode">
+            <i class="ti ti-moon fs-20" id="theme-icon"></i>
+        </button>
+    </div>
+
     <div class="auth-bg d-flex min-vh-100 justify-content-center align-items-center explore-hero">
         <div class="container py-4">
             <div class="row justify-content-center">
