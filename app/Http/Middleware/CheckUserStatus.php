@@ -23,10 +23,15 @@ class CheckUserStatus
         }
 
         if ($user->isSuspended()) {
+            $until = $user->suspended_until;
+            $reasonText = $user->suspension_reason;
             auth()->logout();
-            $label = $user->suspensionRemainingLabel();
-            $reason = $user->suspension_reason ? ' Alasan: ' . $user->suspension_reason . '.' : '';
+
+            $label = \App\Models\User::formatDurationLabel((int) now()->diffInSeconds($until, false));
+            $reason = $reasonText ? ' Alasan: ' . $reasonText . '.' : '';
             session()->flash('failed_message', "Akun Anda sedang disuspend selama {$label} lagi.{$reason} Silakan coba lagi setelah periode suspensi berakhir.");
+            session()->flash('suspended_until_iso', $until->toIso8601String());
+            session()->flash('suspension_reason_text', $reasonText);
             return to_route('auth.view');
         }
 

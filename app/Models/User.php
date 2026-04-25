@@ -134,23 +134,42 @@ class User extends Authenticatable
         return (int) now()->diffInMinutes($this->suspended_until, false);
     }
 
+    public function suspensionRemainingSeconds(): int
+    {
+        if (!$this->isSuspended() || $this->suspended_until === null) {
+            return 0;
+        }
+        return (int) now()->diffInSeconds($this->suspended_until, false);
+    }
+
     public function suspensionRemainingLabel(): string
     {
-        $minutes = $this->suspensionRemainingMinutes();
-        if ($minutes <= 0) {
-            return '0 menit';
+        return self::formatDurationLabel($this->suspensionRemainingSeconds());
+    }
+
+    public static function formatDurationLabel(int $seconds): string
+    {
+        if ($seconds <= 0) {
+            return '0 detik';
         }
-        if ($minutes < 60) {
-            return $minutes . ' menit';
+
+        $days = intdiv($seconds, 86400);
+        $rem = $seconds % 86400;
+        $hours = intdiv($rem, 3600);
+        $rem = $rem % 3600;
+        $minutes = intdiv($rem, 60);
+        $secs = $rem % 60;
+
+        if ($days > 0) {
+            return $hours > 0 ? "{$days} hari {$hours} jam" : "{$days} hari";
         }
-        $hours = intdiv($minutes, 60);
-        $remaining = $minutes % 60;
-        if ($hours < 24) {
-            return $remaining > 0 ? "{$hours} jam {$remaining} menit" : "{$hours} jam";
+        if ($hours > 0) {
+            return $minutes > 0 ? "{$hours} jam {$minutes} menit" : "{$hours} jam";
         }
-        $days = intdiv($hours, 24);
-        $remainingHours = $hours % 24;
-        return $remainingHours > 0 ? "{$days} hari {$remainingHours} jam" : "{$days} hari";
+        if ($minutes > 0) {
+            return $secs > 0 ? "{$minutes} menit {$secs} detik" : "{$minutes} menit";
+        }
+        return "{$secs} detik";
     }
 
     /**
