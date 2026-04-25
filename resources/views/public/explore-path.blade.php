@@ -102,11 +102,15 @@
         .option-radio {
             position: absolute;
             opacity: 0;
-            pointer-events: none;
+            inset: 0;
+        }
+
+        .option-item {
+            display: block;
+            cursor: pointer;
         }
 
         .option-card {
-            cursor: pointer;
             width: 100%;
             border: 1px solid #d0d7e2;
             border-radius: .85rem;
@@ -152,14 +156,14 @@
             box-shadow: 0 8px 14px rgba(79, 70, 229, .22);
         }
 
-        .option-card:hover {
+        .option-item:hover .option-card {
             border-color: #6d7afb;
             background: #f4f6ff;
             transform: translateY(-1px);
             box-shadow: 0 10px 16px rgba(79, 70, 229, .1);
         }
 
-        .option-radio:checked+.option-card {
+        .option-radio:checked + .option-card {
             border-color: #4f46e5;
             border-width: 2px;
             background: linear-gradient(180deg, #eef2ff 0%, #e0e7ff 100%);
@@ -167,18 +171,18 @@
             transform: translateY(-1px);
         }
 
-        .option-radio:checked+.option-card::before {
+        .option-radio:checked + .option-card::before {
             border-color: #4f46e5;
             background: radial-gradient(circle, #111827 42%, #fff 45%);
             box-shadow: 0 0 0 4px rgba(79, 70, 229, .18);
         }
 
-        .option-radio:checked+.option-card::after {
+        .option-radio:checked + .option-card::after {
             opacity: 1;
             transform: translateY(-50%) scale(1);
         }
 
-        .option-radio:focus-visible+.option-card {
+        .option-radio:focus-visible + .option-card {
             outline: 3px solid rgba(79, 70, 229, .28);
             outline-offset: 1px;
         }
@@ -215,18 +219,18 @@
             color: #e9ecef;
         }
 
-        [data-bs-theme="dark"] .option-card:hover {
+        [data-bs-theme="dark"] .option-item:hover .option-card {
             background: rgba(64, 70, 82, .95);
             border-color: rgba(129, 140, 248, .6);
         }
 
-        [data-bs-theme="dark"] .option-radio:checked+.option-card {
+        [data-bs-theme="dark"] .option-radio:checked + .option-card {
             background: linear-gradient(180deg, rgba(79, 70, 229, .35) 0%, rgba(67, 56, 202, .35) 100%);
             border-color: rgba(129, 140, 248, .9);
             box-shadow: 0 0 0 3px rgba(129, 140, 248, .3), 0 12px 24px rgba(14, 17, 30, .35);
         }
 
-        [data-bs-theme="dark"] .option-radio:checked+.option-card::before {
+        [data-bs-theme="dark"] .option-radio:checked + .option-card::before {
             border-color: #a5b4fc;
             background: radial-gradient(circle, #020617 42%, rgba(43, 47, 54, .95) 45%);
             box-shadow: 0 0 0 4px rgba(129, 140, 248, .25);
@@ -281,14 +285,14 @@
                                             <span>{{ $question['text'] }}</span>
                                         </h5>
                                         @foreach ($question['options'] as $option)
-                                            <div class="mb-2 position-relative">
+                                            <label class="mb-2 position-relative option-item" for="q{{ $index }}_{{ $loop->index }}">
                                                 <input class="option-radio"
                                                     name="answers[{{ $index }}]"
                                                     id="q{{ $index }}_{{ $loop->index }}"
                                                     value="{{ $loop->iteration }}"
                                                     {{ old('answers.' . $index) == (string) $loop->iteration ? 'checked' : '' }} required>
-                                                <label class="option-card" for="q{{ $index }}_{{ $loop->index }}">{{ $option }}</label>
-                                            </div>
+                                                <span class="option-card">{{ $option }}</span>
+                                            </label>
                                         @endforeach
                                     </div>
                                 </div>
