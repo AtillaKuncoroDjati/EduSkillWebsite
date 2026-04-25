@@ -102,14 +102,19 @@
         .option-radio {
             width: 20px;
             height: 20px;
+            min-width: 20px;
             border: 2px solid #98a2b3;
             border-radius: 999px;
-            background: #fff;
-            margin-top: .2rem;
+            background-color: #fff;
+            background-image: none;
+            margin: .2rem 0 0 0;
+            padding: 0;
             flex-shrink: 0;
             appearance: none;
             -webkit-appearance: none;
-            transition: all .2s ease;
+            -moz-appearance: none;
+            cursor: pointer;
+            transition: border-color .2s ease, background-color .2s ease, box-shadow .2s ease;
         }
 
         .option-item {
@@ -121,33 +126,34 @@
             border: 1px solid #d0d7e2;
             border-radius: .85rem;
             padding: .85rem 1rem;
-            transition: all .2s ease;
+            transition: border-color .2s ease, background-color .2s ease, box-shadow .2s ease;
             background: #fff;
+            user-select: none;
         }
 
         .option-label {
             flex: 1;
+            pointer-events: none;
         }
 
         .option-item:hover {
             border-color: #6d7afb;
             background: #f4f6ff;
-            transform: translateY(-1px);
-            box-shadow: 0 10px 16px rgba(79, 70, 229, .1);
+            box-shadow: 0 6px 14px rgba(79, 70, 229, .08);
         }
 
         .option-item.is-selected {
-            border-color: #4f46e5;
+            border-color: #111827;
             border-width: 2px;
-            background: linear-gradient(180deg, #eef2ff 0%, #e0e7ff 100%);
-            box-shadow: 0 0 0 3px rgba(79, 70, 229, .18), 0 12px 24px rgba(79, 70, 229, .2);
-            transform: translateY(-1px);
+            background: #eef2ff;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, .18);
         }
 
         .option-radio:checked {
             border-color: #111827;
-            background: radial-gradient(circle, #111827 42%, #fff 45%);
-            box-shadow: 0 0 0 3px rgba(79, 70, 229, .18);
+            background-color: #fff;
+            background-image: radial-gradient(circle, #111827 0%, #111827 45%, transparent 48%);
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, .2);
         }
 
         .option-radio:focus-visible {
@@ -204,9 +210,10 @@
         }
 
         [data-bs-theme="dark"] .option-radio:checked {
-            border-color: #020617;
-            background: radial-gradient(circle, #020617 42%, rgba(43, 47, 54, .95) 45%);
-            box-shadow: 0 0 0 4px rgba(129, 140, 248, .25);
+            border-color: #f8fafc;
+            background-color: rgba(43, 47, 54, .95);
+            background-image: radial-gradient(circle, #f8fafc 0%, #f8fafc 45%, transparent 48%);
+            box-shadow: 0 0 0 3px rgba(129, 140, 248, .35);
         }
     </style>
 </head>
@@ -254,7 +261,8 @@
                                         </h5>
                                         @foreach ($question['options'] as $option)
                                             <label class="mb-2 option-item" for="q{{ $index }}_{{ $loop->index }}">
-                                                <input class="option-radio"
+                                                <input type="radio"
+                                                    class="option-radio"
                                                     name="answers[{{ $index }}]"
                                                     id="q{{ $index }}_{{ $loop->index }}"
                                                     value="{{ $loop->iteration }}"
