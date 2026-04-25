@@ -8,6 +8,14 @@ use Illuminate\Http\Request;
 
 class ExplorePathController extends Controller
 {
+    private const OPTION_TO_CATEGORY = [
+        '1' => 'programming',
+        '2' => 'design',
+        '3' => 'marketing',
+        '4' => 'business',
+        '5' => 'cybersecurity',
+    ];
+
     private const CATEGORY_LABELS = [
         'programming' => 'Programming',
         'design' => 'Design',
@@ -41,15 +49,18 @@ class ExplorePathController extends Controller
     {
         $validated = $request->validate([
             'answers' => ['required', 'array', 'size:5'],
-            'answers.*' => ['required', 'in:programming,design,marketing,business,cybersecurity'],
+            'answers.*' => ['required', 'in:1,2,3,4,5'],
         ]);
 
         $scores = collect(array_keys(self::CATEGORY_LABELS))
             ->mapWithKeys(fn($category) => [$category => 0])
             ->all();
 
-        foreach ($validated['answers'] as $answer) {
-            $scores[$answer]++;
+        foreach ($validated['answers'] as $selectedOption) {
+            $category = self::OPTION_TO_CATEGORY[(string) $selectedOption] ?? null;
+            if ($category !== null) {
+                $scores[$category]++;
+            }
         }
 
         arsort($scores);

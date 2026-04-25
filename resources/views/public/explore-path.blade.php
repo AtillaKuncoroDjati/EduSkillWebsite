@@ -169,7 +169,7 @@
 
         .option-radio:checked+.option-card::before {
             border-color: #4f46e5;
-            background: radial-gradient(circle, #4f46e5 53%, #fff 56%);
+            background: radial-gradient(circle, #111827 42%, #fff 45%);
             box-shadow: 0 0 0 4px rgba(79, 70, 229, .18);
         }
 
@@ -228,7 +228,7 @@
 
         [data-bs-theme="dark"] .option-radio:checked+.option-card::before {
             border-color: #a5b4fc;
-            background: radial-gradient(circle, #c7d2fe 53%, rgba(43, 47, 54, .95) 56%);
+            background: radial-gradient(circle, #020617 42%, rgba(43, 47, 54, .95) 45%);
             box-shadow: 0 0 0 4px rgba(129, 140, 248, .25);
         }
 
@@ -280,13 +280,13 @@
                                             <span class="question-number">{{ $index + 1 }}</span>
                                             <span>{{ $question['text'] }}</span>
                                         </h5>
-                                        @foreach ($question['options'] as $value => $option)
+                                        @foreach ($question['options'] as $option)
                                             <div class="mb-2 position-relative">
                                                 <input class="option-radio"
                                                     name="answers[{{ $index }}]"
                                                     id="q{{ $index }}_{{ $loop->index }}"
-                                                    value="{{ $value }}"
-                                                    {{ old('answers.' . $index) === $value ? 'checked' : '' }} required>
+                                                    value="{{ $loop->iteration }}"
+                                                    {{ old('answers.' . $index) == (string) $loop->iteration ? 'checked' : '' }} required>
                                                 <label class="option-card" for="q{{ $index }}_{{ $loop->index }}">{{ $option }}</label>
                                             </div>
                                         @endforeach
