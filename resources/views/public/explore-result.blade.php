@@ -103,10 +103,14 @@
                                     @foreach ($result['suggested_courses'] as $course)
                                         <div class="col-md-6">
                                             <div class="card border h-100 course-suggestion-card">
-                                                @if (!empty($course['thumbnail']) && file_exists(public_path('uploads/kursus/' . $course['thumbnail'])))
+                                                @if (!empty($course['thumbnail']))
                                                     <img src="{{ asset('uploads/kursus/' . $course['thumbnail']) }}"
                                                         alt="Thumbnail {{ $course['title'] }}"
-                                                        class="course-thumb">
+                                                        class="course-thumb"
+                                                        onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                                    <div class="course-thumb-fallback" style="display:none;">
+                                                        <i class="ti ti-photo"></i>
+                                                    </div>
                                                 @else
                                                     <div class="course-thumb-fallback">
                                                         <i class="ti ti-photo"></i>
