@@ -84,6 +84,7 @@
         </div>
     </div>
 
+    {{-- Modal Tambah --}}
     <div class="modal fade" id="modalTambahUser" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -154,6 +155,7 @@
         </div>
     </div>
 
+    {{-- Modal Edit --}}
     <div class="modal fade" id="modalEditUser" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -226,6 +228,54 @@
                         </button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    {{-- Modal Suspend --}}
+    <div class="modal fade" id="modalSuspendUser" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="ti ti-clock-pause me-2"></i>Suspend Pengguna
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-3">Suspend akun: <strong id="suspend-user-name"></strong></p>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Durasi Suspensi</label>
+                        <div class="d-flex flex-wrap gap-2 mb-2" id="suspend-presets">
+                            <button type="button" class="btn btn-sm btn-outline-secondary suspend-preset" data-minutes="30">30 Menit</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary suspend-preset" data-minutes="60">1 Jam</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary suspend-preset" data-minutes="360">6 Jam</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary suspend-preset" data-minutes="720">12 Jam</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary suspend-preset" data-minutes="1440">1 Hari</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary suspend-preset" data-minutes="4320">3 Hari</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary suspend-preset" data-minutes="10080">7 Hari</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary suspend-preset" data-minutes="43200">30 Hari</button>
+                        </div>
+                        <div class="input-group">
+                            <input type="number" id="suspend-duration" class="form-control" placeholder="Atau masukkan menit kustom" min="1" max="43200">
+                            <span class="input-group-text">menit</span>
+                        </div>
+                        <small class="text-muted">Maksimal 43200 menit (30 hari)</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Alasan Suspensi <span class="text-muted fw-normal">(opsional)</span></label>
+                        <textarea id="suspend-reason" class="form-control" rows="3" placeholder="Contoh: Melanggar ketentuan penggunaan platform..." maxlength="500"></textarea>
+                        <small class="text-muted"><span id="suspend-reason-count">0</span>/500 karakter</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-soft-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-warning" id="btn-confirm-suspend">
+                        <i class="ti ti-clock-pause me-1"></i>Suspend
+                    </button>
+                </div>
             </div>
         </div>
     </div>

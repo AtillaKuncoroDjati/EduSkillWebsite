@@ -236,4 +236,61 @@ class UserController extends Controller
             'user' => $user
         ]);
     }
+
+    public function suspend(Request $request)
+    {
+        $request->validate([
+            'id' => 'required|uuid|exists:users,id',
+            'duration' => 'required|integer|min:1|max:43200',
+            'reason' => 'nullable|string|max:500',
+        ], [
+            'duration.required' => 'Durasi suspensi wajib diisi.',
+            'duration.min' => 'Durasi minimal 1 menit.',
+            'duration.max' => 'Durasi maksimal 30 hari (43200 menit).',
+        ]);
+
+        $user = User::findOrFail($request->id);
+
+        if ($user->id === auth()->id()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda tidak dapat mensuspend akun Anda sendiri.',
+            ], 403);
+        }
+
+        $user->is_suspended = true;
+        $user->suspended_until = now()->addMinutes((int) $request->duration);
+        $user->suspension_reason = $request->reason;
+        $user->suspended_by = auth()->id();
+        $user->suspended_at = now();
+        $user->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Pengguna berhasil disuspend.',
+            'user' => $user,
+        ]);
+    }
+
+    public function unsuspend(Request $request)
+    {
+        $request->validate([
+            'id' => 'required|uuid|exists:users,id',
+        ]);
+
+        $user = User::findOrFail($request->id);
+
+        $user->is_suspended = false;
+        $user->suspended_until = null;
+        $user->suspension_reason = null;
+        $user->suspended_by = null;
+        $user->suspended_at = null;
+        $user->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Suspensi pengguna berhasil dicabut.',
+            'user' => $user,
+        ]);
+    }
 }

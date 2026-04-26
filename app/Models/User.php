@@ -34,6 +34,11 @@ class User extends Authenticatable
         'is_email_notification_enabled',
         'is_whatsapp_notification_enabled',
         'active_device',
+        'is_suspended',
+        'suspended_until',
+        'suspension_reason',
+        'suspended_by',
+        'suspended_at',
     ];
 
     /**
@@ -60,6 +65,9 @@ class User extends Authenticatable
         'is_email_notification_enabled' => 'boolean',
         'is_whatsapp_notification_enabled' => 'boolean',
         'password' => 'hashed',
+        'is_suspended' => 'boolean',
+        'suspended_until' => 'datetime',
+        'suspended_at' => 'datetime',
     ];
 
     /**
@@ -106,6 +114,63 @@ class User extends Authenticatable
     // ============================================
     // HELPER METHODS
     // ============================================
+
+    public function isSuspended(): bool
+    {
+        if (!$this->is_suspended) {
+            return false;
+        }
+        if ($this->suspended_until === null) {
+            return true;
+        }
+        return now()->lt($this->suspended_until);
+    }
+
+    public function suspensionRemainingMinutes(): int
+    {
+        if (!$this->isSuspended() || $this->suspended_until === null) {
+            return 0;
+        }
+        return (int) now()->diffInMinutes($this->suspended_until, false);
+    }
+
+    public function suspensionRemainingSeconds(): int
+    {
+        if (!$this->isSuspended() || $this->suspended_until === null) {
+            return 0;
+        }
+        return (int) now()->diffInSeconds($this->suspended_until, false);
+    }
+
+    public function suspensionRemainingLabel(): string
+    {
+        return self::formatDurationLabel($this->suspensionRemainingSeconds());
+    }
+
+    public static function formatDurationLabel(int $seconds): string
+    {
+        if ($seconds <= 0) {
+            return '0 detik';
+        }
+
+        $days = intdiv($seconds, 86400);
+        $rem = $seconds % 86400;
+        $hours = intdiv($rem, 3600);
+        $rem = $rem % 3600;
+        $minutes = intdiv($rem, 60);
+        $secs = $rem % 60;
+
+        if ($days > 0) {
+            return $hours > 0 ? "{$days} hari {$hours} jam" : "{$days} hari";
+        }
+        if ($hours > 0) {
+            return $minutes > 0 ? "{$hours} jam {$minutes} menit" : "{$hours} jam";
+        }
+        if ($minutes > 0) {
+            return $secs > 0 ? "{$minutes} menit {$secs} detik" : "{$minutes} menit";
+        }
+        return "{$secs} detik";
+    }
 
     /**
      * Cek apakah user sudah enroll kursus tertentu

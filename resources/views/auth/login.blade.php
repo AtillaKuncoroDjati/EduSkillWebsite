@@ -157,11 +157,25 @@
     </script>
 
     <script>
+        function formatRemainingDuration(seconds) {
+            if (seconds <= 0) return '0 detik';
+            var days = Math.floor(seconds / 86400);
+            seconds %= 86400;
+            var hours = Math.floor(seconds / 3600);
+            seconds %= 3600;
+            var minutes = Math.floor(seconds / 60);
+            var secs = seconds % 60;
+            if (days > 0) return hours > 0 ? days + ' hari ' + hours + ' jam' : days + ' hari';
+            if (hours > 0) return minutes > 0 ? hours + ' jam ' + minutes + ' menit' : hours + ' jam';
+            if (minutes > 0) return secs > 0 ? minutes + ' menit ' + secs + ' detik' : minutes + ' menit';
+            return secs + ' detik';
+        }
+
         $(document).ready(function() {
             @if (\Illuminate\Support\Facades\Session::get('failed_message'))
-                $.alert({
+                var failedAlert = $.alert({
                     title: 'Peringatan',
-                    content: '{{ \Illuminate\Support\Facades\Session::get('failed_message') }}',
+                    content: @json(\Illuminate\Support\Facades\Session::get('failed_message')),
                     type: 'red',
                     theme: 'material',
                     backgroundDismissAnimation: 'shake',
@@ -170,12 +184,43 @@
                         this.$content.css("color", "black");
                     }
                 });
+
+                @if (\Illuminate\Support\Facades\Session::get('suspended_until_iso'))
+                    (function() {
+                        var endTime = new Date(@json(\Illuminate\Support\Facades\Session::get('suspended_until_iso'))).getTime();
+                        var reason = @json(\Illuminate\Support\Facades\Session::get('suspension_reason_text'));
+
+                        function buildSuspensionMessage(remainingSeconds) {
+                            if (remainingSeconds <= 0) {
+                                return 'Periode suspensi telah berakhir. Silakan coba login kembali.';
+                            }
+                            var label = formatRemainingDuration(remainingSeconds);
+                            var msg = 'Akun Anda sedang disuspend selama <strong>' + label + '</strong> lagi.';
+                            if (reason) msg += ' Alasan: ' + reason + '.';
+                            msg += ' Silakan coba lagi setelah periode suspensi berakhir.';
+                            return msg;
+                        }
+
+                        function tick() {
+                            var remaining = Math.floor((endTime - Date.now()) / 1000);
+                            failedAlert.setContent(buildSuspensionMessage(remaining));
+                            if (failedAlert.$content) failedAlert.$content.css("color", "black");
+                            return remaining;
+                        }
+
+                        if (tick() > 0) {
+                            var interval = setInterval(function() {
+                                if (tick() <= 0) clearInterval(interval);
+                            }, 1000);
+                        }
+                    })();
+                @endif
             @endif
 
             @if (\Illuminate\Support\Facades\Session::get('success_message'))
                 $.alert({
                     title: 'Informasi',
-                    content: '{{ \Illuminate\Support\Facades\Session::get('success_message') }}',
+                    content: @json(\Illuminate\Support\Facades\Session::get('success_message')),
                     type: 'green',
                     theme: 'material',
                     backgroundDismissAnimation: 'shake',

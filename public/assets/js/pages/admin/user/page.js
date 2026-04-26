@@ -5,6 +5,7 @@ jQuery.index = {
         searchButton: null,
         statusFilter: 'all',
         permissionFilter: 'all',
+        suspendUserId: null,
     },
     init: function () {
         var self = this;
@@ -58,7 +59,7 @@ jQuery.index = {
                 {
                     data: 'name',
                     className: 'align-middle',
-                    render: function (name, type, row) {
+                    render: function (name) {
                         return '<strong>' + name + '</strong>';
                     }
                 },
@@ -84,15 +85,29 @@ jQuery.index = {
                     }
                 },
                 {
-                    data: 'status',
+                    data: null,
                     className: 'text-center align-middle',
-                    render: function (status) {
+                    render: function (data) {
+                        const isSuspended = data.is_suspended && data.suspended_until
+                            && new Date(data.suspended_until) > new Date();
+
+                        if (isSuspended) {
+                            const until = new Date(data.suspended_until);
+                            const formatted = until.toLocaleDateString('id-ID', {
+                                day: '2-digit', month: 'short', year: 'numeric',
+                                hour: '2-digit', minute: '2-digit'
+                            });
+                            return `<span class="badge bg-warning text-dark" title="Suspended hingga ${formatted}">
+                                <i class="ti ti-clock-pause"></i> Suspended
+                            </span>`;
+                        }
+
                         const badges = {
                             'aktif': '<span class="badge bg-success">Aktif</span>',
-                            'nonaktif': '<span class="badge bg-warning">Nonaktif</span>',
+                            'nonaktif': '<span class="badge bg-warning text-dark">Nonaktif</span>',
                             'banned': '<span class="badge bg-danger">Banned</span>'
                         };
-                        return badges[status] || '<span class="badge bg-secondary">Unknown</span>';
+                        return badges[data.status] || '<span class="badge bg-secondary">Unknown</span>';
                     }
                 },
                 {
@@ -111,12 +126,29 @@ jQuery.index = {
                     data: null,
                     className: 'text-center align-middle',
                     render: function (data) {
+                        const isSuspended = data.is_suspended && data.suspended_until
+                            && new Date(data.suspended_until) > new Date();
+
+                        let suspendBtn = '';
+                        if (isSuspended) {
+                            suspendBtn = `<button class='btn btn-sm btn-soft-success btn-unsuspend w-100'
+                                data-id='${data.id}' data-name='${data.name}'>
+                                <i class='ti ti-player-play me-1'></i>Cabut Suspend
+                            </button>`;
+                        } else {
+                            suspendBtn = `<button class='btn btn-sm btn-soft-warning btn-suspend w-100'
+                                data-id='${data.id}' data-name='${data.name}'>
+                                <i class='ti ti-clock-pause me-1'></i>Suspend
+                            </button>`;
+                        }
+
                         return `
                             <div class='d-grid gap-1'>
                                 <button class='btn btn-sm btn-soft-warning btn-edit w-100'
                                     data-id='${data.id}'>
                                     <i class='ti ti-pencil me-1'></i>Edit
                                 </button>
+                                ${suspendBtn}
                                 <button class='btn btn-sm btn-soft-danger btn-hapus w-100'
                                     data-id='${data.id}'
                                     data-name='${data.name}'>
@@ -201,6 +233,141 @@ jQuery.index = {
                 $('#modalEditUser').modal('show');
             }).fail(function () {
                 Swal.fire('Error', 'Gagal memuat data user', 'error');
+            });
+        });
+
+        $(document).on('click', '.btn-suspend', function () {
+            var id = $(this).data('id');
+            var name = $(this).data('name');
+
+            self.data.suspendUserId = id;
+            $('#suspend-user-name').text(name);
+            $('#suspend-duration').val('');
+            $('#suspend-reason').val('');
+            $('#suspend-reason-count').text('0');
+            $('.suspend-preset').removeClass('active btn-secondary').addClass('btn-outline-secondary');
+            $('#modalSuspendUser').modal('show');
+        });
+
+        $(document).on('click', '.suspend-preset', function () {
+            var minutes = $(this).data('minutes');
+            $('.suspend-preset').removeClass('active btn-secondary').addClass('btn-outline-secondary');
+            $(this).removeClass('btn-outline-secondary').addClass('btn-secondary active');
+            $('#suspend-duration').val(minutes);
+        });
+
+        $('#suspend-duration').on('input', function () {
+            $('.suspend-preset').removeClass('active btn-secondary').addClass('btn-outline-secondary');
+        });
+
+        $('#suspend-reason').on('input', function () {
+            $('#suspend-reason-count').text($(this).val().length);
+        });
+
+        $('#btn-confirm-suspend').on('click', function () {
+            var duration = parseInt($('#suspend-duration').val());
+            var reason = $('#suspend-reason').val().trim();
+
+            if (!duration || duration < 1) {
+                Swal.fire('Perhatian', 'Pilih atau masukkan durasi suspensi terlebih dahulu.', 'warning');
+                return;
+            }
+            if (duration > 43200) {
+                Swal.fire('Perhatian', 'Durasi maksimal adalah 43200 menit (30 hari).', 'warning');
+                return;
+            }
+
+            $('#modalSuspendUser').modal('hide');
+
+            Swal.fire({
+                title: 'Memproses...',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            $.ajax({
+                url: '/admin/pengguna/suspend',
+                type: 'POST',
+                headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+                data: {
+                    id: self.data.suspendUserId,
+                    duration: duration,
+                    reason: reason,
+                },
+                success: function (res) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Berhasil',
+                        text: res.message,
+                        timer: 2000,
+                        showConfirmButton: false
+                    }).then(function () {
+                        self.data.table.ajax.reload(null, false);
+                    });
+                },
+                error: function (xhr) {
+                    var msg = 'Gagal mensuspend pengguna.';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        msg = xhr.responseJSON.message;
+                    }
+                    Swal.fire('Gagal', msg, 'error');
+                }
+            });
+        });
+
+        $(document).on('click', '.btn-unsuspend', function () {
+            var id = $(this).data('id');
+            var name = $(this).data('name');
+
+            $.confirm({
+                title: 'Cabut Suspensi',
+                type: 'green',
+                columnClass: 'medium',
+                content: 'Cabut suspensi untuk pengguna <strong>' + name + '</strong>? Pengguna akan dapat login kembali.',
+                buttons: {
+                    cancel: {
+                        text: 'Batal',
+                        btnClass: 'btn-secondary',
+                        keys: ['esc']
+                    },
+                    confirm: {
+                        text: 'Ya, Cabut!',
+                        btnClass: 'btn-success',
+                        keys: ['enter'],
+                        action: function () {
+                            Swal.fire({
+                                title: 'Memproses...',
+                                allowOutsideClick: false,
+                                didOpen: () => { Swal.showLoading(); }
+                            });
+
+                            $.ajax({
+                                url: '/admin/pengguna/unsuspend',
+                                type: 'POST',
+                                headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+                                data: { id: id },
+                                success: function (res) {
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'Berhasil',
+                                        text: res.message,
+                                        timer: 2000,
+                                        showConfirmButton: false
+                                    }).then(function () {
+                                        self.data.table.ajax.reload(null, false);
+                                    });
+                                },
+                                error: function (xhr) {
+                                    var msg = 'Gagal mencabut suspensi.';
+                                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                                        msg = xhr.responseJSON.message;
+                                    }
+                                    Swal.fire('Gagal', msg, 'error');
+                                }
+                            });
+                        }
+                    }
+                }
             });
         });
 
