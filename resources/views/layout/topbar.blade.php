@@ -109,6 +109,7 @@
                             function logoutWithCrispReset() {
                                 try {
                                     localStorage.removeItem('eduskill_crisp_user_id');
+                                    localStorage.removeItem('eduskill_crisp_app_session_id');
                                 } catch (e) {
                                     // Abaikan jika localStorage tidak tersedia.
                                 }

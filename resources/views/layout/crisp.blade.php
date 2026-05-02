@@ -12,21 +12,30 @@
 
     (function () {
         var currentUserId = @json((string) $authUser->id);
-        var storageKey = "eduskill_crisp_user_id";
+        var currentAppSessionId = @json((string) session()->getId());
+        var storageUserKey = "eduskill_crisp_user_id";
+        var storageSessionKey = "eduskill_crisp_app_session_id";
         var previousUserId = null;
+        var previousSessionId = null;
 
         try {
-            previousUserId = localStorage.getItem(storageKey);
+            previousUserId = localStorage.getItem(storageUserKey);
+            previousSessionId = localStorage.getItem(storageSessionKey);
         } catch (e) {
             previousUserId = null;
+            previousSessionId = null;
         }
 
-        if (previousUserId && previousUserId !== currentUserId) {
+        var userSwitched = previousUserId && previousUserId !== currentUserId;
+        var loginSessionChanged = previousSessionId && previousSessionId !== currentAppSessionId;
+
+        if (userSwitched || loginSessionChanged) {
             $crisp.push(["do", "session:reset"]);
         }
 
         try {
-            localStorage.setItem(storageKey, currentUserId);
+            localStorage.setItem(storageUserKey, currentUserId);
+            localStorage.setItem(storageSessionKey, currentAppSessionId);
         } catch (e) {
             // Abaikan jika localStorage tidak tersedia.
         }
