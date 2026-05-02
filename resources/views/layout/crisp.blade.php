@@ -7,22 +7,53 @@
 
 @if ($showWidget)
 <script>
-    window.$crisp = [];
+    window.$crisp = window.$crisp || [];
     window.CRISP_WEBSITE_ID = @json($crispId);
 
-    /* ── Identitas pengguna ── */
-    $crisp.push(["set", "user:email",    [@json($authUser->email)]]);
-    $crisp.push(["set", "user:nickname", [@json($authUser->name)]]);
-    @if ($authUser->avatar && $authUser->avatar !== 'default-avatar.png')
-    $crisp.push(["set", "user:avatar",   [@json(asset('uploads/avatar/' . $authUser->avatar))]]);
-    @endif
+    (function () {
+        var currentUserId = @json((string) $authUser->id);
+        var currentAppSessionId = @json((string) session()->getId());
+        var storageUserKey = "eduskill_crisp_user_id";
+        var storageSessionKey = "eduskill_crisp_app_session_id";
+        var previousUserId = null;
+        var previousSessionId = null;
 
-    /* ── Data sesi tambahan (terlihat di dashboard Crisp admin) ── */
-    $crisp.push(["set", "session:data", [[
-        ["user_id",  @json($authUser->id)],
-        ["platform", "EduSkill"],
-        ["role",     "user"]
-    ]]]);
+        try {
+            previousUserId = localStorage.getItem(storageUserKey);
+            previousSessionId = localStorage.getItem(storageSessionKey);
+        } catch (e) {
+            previousUserId = null;
+            previousSessionId = null;
+        }
+
+        var userSwitched = previousUserId && previousUserId !== currentUserId;
+        var loginSessionChanged = previousSessionId && previousSessionId !== currentAppSessionId;
+
+        if (userSwitched || loginSessionChanged) {
+            $crisp.push(["do", "session:reset"]);
+        }
+
+        try {
+            localStorage.setItem(storageUserKey, currentUserId);
+            localStorage.setItem(storageSessionKey, currentAppSessionId);
+        } catch (e) {
+            // Abaikan jika localStorage tidak tersedia.
+        }
+
+        /* ── Identitas pengguna ── */
+        $crisp.push(["set", "user:email", [@json($authUser->email)]]);
+        $crisp.push(["set", "user:nickname", [@json($authUser->name)]]);
+        @if ($authUser->avatar && $authUser->avatar !== 'default-avatar.png')
+        $crisp.push(["set", "user:avatar", [@json(asset('uploads/avatar/' . $authUser->avatar))]]);
+        @endif
+
+        /* ── Data sesi tambahan (terlihat di dashboard Crisp admin) ── */
+        $crisp.push(["set", "session:data", [[
+            ["user_id", @json($authUser->id)],
+            ["platform", "EduSkill"],
+            ["role", "user"]
+        ]]]);
+    })();
 
     /* ── Template "Tinggalkan Pesan" ───────────────────────────────────
      * Jika chat dibuka dan admin belum membalas dalam 8 detik,

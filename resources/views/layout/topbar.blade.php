@@ -92,7 +92,7 @@
 
                         <!-- item-->
                         <a href="#" class="dropdown-item active fw-semibold text-danger"
-                            onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
+                            onclick="event.preventDefault(); logoutWithCrispReset();">
                             <i class="ti ti-logout me-1
                             fs-17 align-middle"></i>
                             <span class="align-middle">
@@ -104,6 +104,29 @@
                             style="display: none;">
                             @csrf
                         </form>
+
+                        <script>
+                            function logoutWithCrispReset() {
+                                try {
+                                    localStorage.removeItem('eduskill_crisp_user_id');
+                                    localStorage.removeItem('eduskill_crisp_app_session_id');
+                                } catch (e) {
+                                    // Abaikan jika localStorage tidak tersedia.
+                                }
+
+                                var submitLogout = function() {
+                                    document.getElementById('logout-form').submit();
+                                };
+
+                                if (window.$crisp && typeof window.$crisp.push === 'function') {
+                                    window.$crisp.push(["do", "session:reset"]);
+                                    setTimeout(submitLogout, 150);
+                                    return;
+                                }
+
+                                submitLogout();
+                            }
+                        </script>
                     </div>
                 </div>
             </div>
