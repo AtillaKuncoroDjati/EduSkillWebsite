@@ -400,6 +400,7 @@
     <!-- Custom script -->
     <script src="{{ asset('assets/js/pages/timestamp.js') }}"></script>
     @stack('scripts')
+    @include('layout.crisp')
 
     <script>
         $(document).ready(function() {
