@@ -109,7 +109,6 @@
                             function logoutWithCrispReset() {
                                 try {
                                     localStorage.removeItem('eduskill_crisp_user_id');
-                                    localStorage.removeItem('eduskill_crisp_app_session_id');
                                 } catch (e) {
                                     // Abaikan jika localStorage tidak tersedia.
                                 }
@@ -119,6 +118,7 @@
                                 };
 
                                 if (window.$crisp && typeof window.$crisp.push === 'function') {
+                                    window.CRISP_TOKEN_ID = null;
                                     window.$crisp.push(["do", "session:reset"]);
                                     setTimeout(submitLogout, 150);
                                     return;

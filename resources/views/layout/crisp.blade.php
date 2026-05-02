@@ -3,39 +3,34 @@
     $crispEnabled = config('crisp.enabled') && !empty($crispId);
     $authUser = auth()->user();
     $showWidget = $crispEnabled && $authUser && $authUser->permission === 'user';
+    $crispTokenId = hash_hmac('sha256', (string) $authUser->id . '|' . strtolower((string) $authUser->email), config('app.key'));
 @endphp
 
 @if ($showWidget)
 <script>
     window.$crisp = window.$crisp || [];
     window.CRISP_WEBSITE_ID = @json($crispId);
+    window.CRISP_TOKEN_ID = @json($crispTokenId);
 
     (function () {
         var currentUserId = @json((string) $authUser->id);
-        var currentAppSessionId = @json((string) session()->getId());
         var storageUserKey = "eduskill_crisp_user_id";
-        var storageSessionKey = "eduskill_crisp_app_session_id";
         var previousUserId = null;
-        var previousSessionId = null;
 
         try {
             previousUserId = localStorage.getItem(storageUserKey);
-            previousSessionId = localStorage.getItem(storageSessionKey);
         } catch (e) {
             previousUserId = null;
-            previousSessionId = null;
         }
 
         var userSwitched = previousUserId && previousUserId !== currentUserId;
-        var loginSessionChanged = previousSessionId && previousSessionId !== currentAppSessionId;
 
-        if (userSwitched || loginSessionChanged) {
+        if (userSwitched) {
             $crisp.push(["do", "session:reset"]);
         }
 
         try {
             localStorage.setItem(storageUserKey, currentUserId);
-            localStorage.setItem(storageSessionKey, currentAppSessionId);
         } catch (e) {
             // Abaikan jika localStorage tidak tersedia.
         }
