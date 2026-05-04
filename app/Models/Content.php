@@ -12,8 +12,10 @@ class Content extends Model
 
     protected $casts = [
         'integrity_mode_enabled' => 'boolean',
-        'require_fullscreen' => 'boolean',
-        'max_violations' => 'integer',
+        'require_fullscreen'     => 'boolean',
+        'max_violations'         => 'integer',
+        'is_ai_generated'        => 'boolean',
+        'ai_question_count'      => 'integer',
     ];
 
     protected $fillable = [
@@ -24,7 +26,9 @@ class Content extends Model
         'integrity_mode_enabled',
         'require_fullscreen',
         'max_violations',
-        'order'
+        'is_ai_generated',
+        'ai_question_count',
+        'order',
     ];
 
     public function module()

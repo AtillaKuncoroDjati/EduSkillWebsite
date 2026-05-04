@@ -19,7 +19,8 @@ class KursusController extends Controller
 
     public function create()
     {
-        return view('admin.kursus.create');
+        $allKursuses = Kursus::orderBy('title')->get();
+        return view('admin.kursus.create', compact('allKursuses'));
     }
 
     public function store(Request $request)
@@ -78,13 +79,16 @@ class KursusController extends Controller
 
         $course->save();
 
+        $course->prerequisites()->sync($request->input('prerequisites', []));
+
         session()->flash('success_message', 'Berhasil menambahkan kursus baru: ' . $course->title);
         return redirect()->route('admin.kursus.index');
     }
 
     public function edit(Kursus $kursus)
     {
-        return view('admin.kursus.edit', compact('kursus'));
+        $allKursuses = Kursus::where('id', '!=', $kursus->id)->orderBy('title')->get();
+        return view('admin.kursus.edit', compact('kursus', 'allKursuses'));
     }
 
     public function update(Request $request, Kursus $kursus)
@@ -130,6 +134,8 @@ class KursusController extends Controller
         }
 
         $kursus->save();
+
+        $kursus->prerequisites()->sync($request->input('prerequisites', []));
 
         session()->flash('success_message', 'Berhasil memperbarui kursus: ' . $kursus->title);
 

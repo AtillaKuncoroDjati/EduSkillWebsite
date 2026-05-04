@@ -71,11 +71,17 @@
 
                                     {{-- Quiz Info --}}
                                     @if ($materi->type === 'quiz')
-                                        <div class="mt-2">
-                                            <small class="text-muted">
-                                                <i class="ti ti-help-circle"></i> {{ $materi->questions->count() }}
-                                                Pertanyaan
-                                            </small>
+                                        <div class="mt-2 d-flex align-items-center gap-2">
+                                            @if ($materi->is_ai_generated)
+                                                <span class="badge bg-purple" style="background:#7c3aed;">
+                                                    <i class="ti ti-sparkles"></i> AI Generated
+                                                </span>
+                                                <small class="text-muted">{{ $materi->ai_question_count }} soal per pengguna</small>
+                                            @else
+                                                <small class="text-muted">
+                                                    <i class="ti ti-help-circle"></i> {{ $materi->questions->count() }} Pertanyaan
+                                                </small>
+                                            @endif
                                         </div>
                                     @endif
                                 </div>
@@ -149,7 +155,23 @@
                         </div>
 
                         <div id="create-quiz-builder" class="d-none">
-                            <h6>Pertanyaan Kuis</h6>
+                            <div class="card border mb-3 border-purple" style="border-color:#7c3aed!important;">
+                                <div class="card-body">
+                                    <div class="form-check form-switch mb-2">
+                                        <input class="form-check-input" type="checkbox" id="create-ai-generated"
+                                            name="is_ai_generated" value="1">
+                                        <label class="form-check-label fw-bold" for="create-ai-generated">
+                                            <i class="ti ti-sparkles"></i> Generate Soal dengan Gemini AI
+                                        </label>
+                                    </div>
+                                    <small class="text-muted">Jika diaktifkan, soal akan dibuat otomatis oleh AI berdasarkan konten materi. Setiap pengguna mendapat soal yang berbeda.</small>
+                                    <div id="create-ai-count-wrapper" class="mt-2 d-none">
+                                        <label class="form-label">Jumlah Soal per Pengguna</label>
+                                        <input type="number" class="form-control" name="ai_question_count" min="1" max="20" value="5" style="max-width:120px;">
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="card border mb-3">
                                 <div class="card-body">
                                     <h6 class="mb-3">Pengaturan Integritas Kuis</h6>
@@ -167,10 +189,14 @@
                                     <input type="number" class="form-control" name="max_violations" min="1" max="20" value="3">
                                 </div>
                             </div>
+
+                            <div id="create-manual-quiz-wrapper">
+                            <h6>Pertanyaan Kuis</h6>
                             <div id="create-questions-container"></div>
                             <button type="button" class="btn btn-sm btn-soft-primary mt-2" id="create-add-question">
                                 Tambah Pertanyaan
                             </button>
+                            </div>{{-- end create-manual-quiz-wrapper --}}
                         </div>
                     </div>
 
@@ -217,7 +243,23 @@
                         </div>
 
                         <div id="edit-quiz-builder" class="d-none">
-                            <h6>Pertanyaan Kuis</h6>
+                            <div class="card border mb-3" style="border-color:#7c3aed!important;">
+                                <div class="card-body">
+                                    <div class="form-check form-switch mb-2">
+                                        <input class="form-check-input" type="checkbox" id="edit-ai-generated"
+                                            name="is_ai_generated" value="1">
+                                        <label class="form-check-label fw-bold" for="edit-ai-generated">
+                                            <i class="ti ti-sparkles"></i> Generate Soal dengan Gemini AI
+                                        </label>
+                                    </div>
+                                    <small class="text-muted">Jika diaktifkan, soal akan dibuat otomatis oleh AI berdasarkan konten materi. Setiap pengguna mendapat soal yang berbeda.</small>
+                                    <div id="edit-ai-count-wrapper" class="mt-2 d-none">
+                                        <label class="form-label">Jumlah Soal per Pengguna</label>
+                                        <input type="number" class="form-control" id="edit-ai-question-count" name="ai_question_count" min="1" max="20" value="5" style="max-width:120px;">
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="card border mb-3">
                                 <div class="card-body">
                                     <h6 class="mb-3">Pengaturan Integritas Kuis</h6>
@@ -235,10 +277,14 @@
                                     <input type="number" class="form-control" id="edit-max-violations" name="max_violations" min="1" max="20" value="3">
                                 </div>
                             </div>
+
+                            <div id="edit-manual-quiz-wrapper">
+                            <h6>Pertanyaan Kuis</h6>
                             <div id="edit-questions-container"></div>
                             <button type="button" class="btn btn-sm btn-soft-primary mt-2" id="edit-add-question">
                                 Tambah Pertanyaan
                             </button>
+                            </div>{{-- end edit-manual-quiz-wrapper --}}
                         </div>
                     </div>
 
@@ -527,6 +573,16 @@
             adjustEditorHeight(type, false);
         });
 
+        $('#create-ai-generated').on('change', function() {
+            if ($(this).is(':checked')) {
+                $('#create-ai-count-wrapper').removeClass('d-none');
+                $('#create-manual-quiz-wrapper').addClass('d-none');
+            } else {
+                $('#create-ai-count-wrapper').addClass('d-none');
+                $('#create-manual-quiz-wrapper').removeClass('d-none');
+            }
+        });
+
         $('#create-add-question').on('click', function() {
             const currentQuestionCount = $('#create-questions-container .question-block').length;
 
@@ -584,11 +640,14 @@
 
             const type = $('#create-type').val();
             if (type === 'quiz') {
-                const questionCount = $('#create-questions-container .question-block').length;
-                if (questionCount === 0) {
-                    e.preventDefault();
-                    Swal.fire('Error', 'Quiz harus memiliki minimal 1 pertanyaan', 'error');
-                    return false;
+                const isAi = $('#create-ai-generated').is(':checked');
+                if (!isAi) {
+                    const questionCount = $('#create-questions-container .question-block').length;
+                    if (questionCount === 0) {
+                        e.preventDefault();
+                        Swal.fire('Error', 'Quiz harus memiliki minimal 1 pertanyaan', 'error');
+                        return false;
+                    }
                 }
             }
         });
@@ -632,6 +691,18 @@
                     $('#edit-integrity-enabled').prop('checked', !!res.integrity_mode_enabled);
                     $('#edit-require-fullscreen').prop('checked', !!res.require_fullscreen);
                     $('#edit-max-violations').val(res.max_violations || 3);
+
+                    // Populate AI quiz fields
+                    const isAi = !!res.is_ai_generated;
+                    $('#edit-ai-generated').prop('checked', isAi);
+                    $('#edit-ai-question-count').val(res.ai_question_count || 5);
+                    if (isAi) {
+                        $('#edit-ai-count-wrapper').removeClass('d-none');
+                        $('#edit-manual-quiz-wrapper').addClass('d-none');
+                    } else {
+                        $('#edit-ai-count-wrapper').addClass('d-none');
+                        $('#edit-manual-quiz-wrapper').removeClass('d-none');
+                    }
 
                     if (type === 'quiz') {
                         res.questions.forEach((q, i) => {
@@ -709,6 +780,16 @@
             adjustEditorHeight(type, true);
         });
 
+        $('#edit-ai-generated').on('change', function() {
+            if ($(this).is(':checked')) {
+                $('#edit-ai-count-wrapper').removeClass('d-none');
+                $('#edit-manual-quiz-wrapper').addClass('d-none');
+            } else {
+                $('#edit-ai-count-wrapper').addClass('d-none');
+                $('#edit-manual-quiz-wrapper').removeClass('d-none');
+            }
+        });
+
         $('#edit-add-question').on('click', function() {
             const currentQuestionCount = $('#edit-questions-container .edit-question-block').length;
 
@@ -766,11 +847,14 @@
 
             const type = $('#edit-type').val();
             if (type === 'quiz') {
-                const questionCount = $('#edit-questions-container .edit-question-block').length;
-                if (questionCount === 0) {
-                    e.preventDefault();
-                    Swal.fire('Error', 'Quiz harus memiliki minimal 1 pertanyaan', 'error');
-                    return false;
+                const isAi = $('#edit-ai-generated').is(':checked');
+                if (!isAi) {
+                    const questionCount = $('#edit-questions-container .edit-question-block').length;
+                    if (questionCount === 0) {
+                        e.preventDefault();
+                        Swal.fire('Error', 'Quiz harus memiliki minimal 1 pertanyaan', 'error');
+                        return false;
+                    }
                 }
             }
         });

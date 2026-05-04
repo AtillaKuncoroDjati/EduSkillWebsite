@@ -17,7 +17,7 @@ class ContentController extends Controller
     public function quiz(Content $content)
     {
         $content->load('questions.options');
-        return response()->json($content);
+        return response()->json($content->append([]));
     }
 
     public function uploadImage(Request $request)
@@ -152,6 +152,8 @@ class ContentController extends Controller
 
     public function store(Request $request, Module $module)
     {
+        $isAiGenerated = $request->type === 'quiz' && $request->boolean('is_ai_generated');
+
         $request->validate([
             'title' => 'nullable|string|max:255',
             'content' => 'required',
@@ -159,10 +161,11 @@ class ContentController extends Controller
             'integrity_mode_enabled' => 'nullable|boolean',
             'require_fullscreen' => 'nullable|boolean',
             'max_violations' => 'nullable|integer|min:1|max:20',
+            'ai_question_count' => 'nullable|integer|min:1|max:20',
         ]);
 
-        // Validasi tambahan untuk quiz
-        if ($request->type === 'quiz') {
+        // Manual quiz requires questions; AI quiz does not
+        if ($request->type === 'quiz' && !$isAiGenerated) {
             $request->validate([
                 'questions' => 'required|array|min:1',
                 'questions.*.text' => 'required|string',
@@ -176,19 +179,22 @@ class ContentController extends Controller
 
         $order = Content::where('module_id', $module->id)->max('order') + 1;
 
+        $type = $request->input('type');
         $content = Content::create([
             'module_id' => $module->id,
-            'title' => $request->title,
-            'type' => $request->type,
-            'content' => $request->content,
-            'integrity_mode_enabled' => $request->type === 'quiz' ? (bool) $request->integrity_mode_enabled : false,
-            'require_fullscreen' => $request->type === 'quiz' ? (bool) $request->require_fullscreen : false,
-            'max_violations' => $request->type === 'quiz' ? (int) ($request->max_violations ?? 3) : 3,
-            'order' => $order,
+            'title'     => $request->input('title'),
+            'type'      => $type,
+            'content'   => $request->input('content'),
+            'integrity_mode_enabled' => $type === 'quiz' ? (bool) $request->integrity_mode_enabled : false,
+            'require_fullscreen'     => $type === 'quiz' ? (bool) $request->require_fullscreen : false,
+            'max_violations'         => $type === 'quiz' ? (int) ($request->max_violations ?? 3) : 3,
+            'is_ai_generated'        => $isAiGenerated,
+            'ai_question_count'      => $isAiGenerated ? (int) ($request->ai_question_count ?? 5) : 5,
+            'order'                  => $order,
         ]);
 
-        if ($request->type === 'quiz') {
-            foreach ($request->questions as $qIndex => $question) {
+        if ($type === 'quiz' && !$isAiGenerated) {
+            foreach ($request->input('questions', []) as $qIndex => $question) {
                 $q = QuizQuestion::create([
                     'content_id' => $content->id,
                     'question' => $question['text'],
@@ -211,6 +217,8 @@ class ContentController extends Controller
 
     public function update(Request $request)
     {
+        $isAiGenerated = $request->input('type') === 'quiz' && $request->boolean('is_ai_generated');
+
         $request->validate([
             'id' => 'required|exists:contents,id',
             'title' => 'nullable|string|max:255',
@@ -219,10 +227,10 @@ class ContentController extends Controller
             'integrity_mode_enabled' => 'nullable|boolean',
             'require_fullscreen' => 'nullable|boolean',
             'max_violations' => 'nullable|integer|min:1|max:20',
+            'ai_question_count' => 'nullable|integer|min:1|max:20',
         ]);
 
-        // Validasi tambahan untuk quiz
-        if ($request->type === 'quiz') {
+        if ($request->input('type') === 'quiz' && !$isAiGenerated) {
             $request->validate([
                 'questions' => 'required|array|min:1',
                 'questions.*.text' => 'required|string',
@@ -234,29 +242,27 @@ class ContentController extends Controller
             ]);
         }
 
-        $content = Content::findOrFail($request->id);
+        $content = Content::findOrFail($request->input('id'));
 
-        // Simpan content lama untuk pengecekan gambar
         $oldContent = $content->content;
         $oldType = $content->type;
 
-        // Update content
         $content->update([
-            'title' => $request->title,
-            'type' => $request->type,
-            'content' => $request->content,
-            'integrity_mode_enabled' => $request->type === 'quiz' ? (bool) $request->integrity_mode_enabled : false,
-            'require_fullscreen' => $request->type === 'quiz' ? (bool) $request->require_fullscreen : false,
-            'max_violations' => $request->type === 'quiz' ? (int) ($request->max_violations ?? 3) : 3,
+            'title' => $request->input('title'),
+            'type' => $request->input('type'),
+            'content' => $request->input('content'),
+            'integrity_mode_enabled' => $request->input('type') === 'quiz' ? (bool) $request->integrity_mode_enabled : false,
+            'require_fullscreen' => $request->input('type') === 'quiz' ? (bool) $request->require_fullscreen : false,
+            'max_violations' => $request->input('type') === 'quiz' ? (int) ($request->max_violations ?? 3) : 3,
+            'is_ai_generated' => $isAiGenerated,
+            'ai_question_count' => $isAiGenerated ? (int) ($request->ai_question_count ?? 5) : 5,
         ]);
 
-        // Cek gambar yang tidak digunakan (untuk text dan quiz)
         if ($oldContent) {
-            $this->deleteUnusedImages($oldContent, $request->content);
+            $this->deleteUnusedImages($oldContent, $request->input('content'));
         }
 
-        if ($request->type === 'text') {
-            // Jika berubah dari quiz ke text, hapus semua quiz questions
+        if ($request->input('type') === 'text') {
             if ($oldType === 'quiz') {
                 foreach ($content->questions as $q) {
                     $q->options()->delete();
@@ -268,10 +274,15 @@ class ContentController extends Controller
             return back();
         }
 
-        // Hapus quiz questions lama
+        // Always clear old manual questions (AI quiz has none; switching modes also clears)
         foreach ($content->questions as $q) {
             $q->options()->delete();
             $q->delete();
+        }
+
+        if ($isAiGenerated) {
+            session()->flash('success_message', 'Materi & Kuis AI telah diperbarui.');
+            return back();
         }
 
         // Buat quiz questions baru

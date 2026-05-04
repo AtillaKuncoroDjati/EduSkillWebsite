@@ -447,9 +447,12 @@
                         renderQuizContent(response);
                     }
                 },
-                error: function() {
+                error: function(xhr) {
+                    const msg = (xhr.responseJSON && xhr.responseJSON.error)
+                        ? xhr.responseJSON.error
+                        : 'Gagal memuat konten (HTTP ' + xhr.status + ')';
                     $('#content-display').html(
-                        '<div class="alert alert-danger"><i class="ti ti-alert-circle"></i> Gagal memuat konten</div>'
+                        '<div class="alert alert-danger"><i class="ti ti-alert-circle"></i> ' + msg + '</div>'
                     );
                 }
             });

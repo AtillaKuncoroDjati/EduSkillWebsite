@@ -21,15 +21,19 @@ class UserQuizAttempt extends Model
         'violation_count',
         'is_auto_submitted',
         'auto_submit_reason',
+        'generated_questions',
+        'ai_answers',
         'started_at',
         'completed_at',
     ];
 
     protected $casts = [
-        'is_passed' => 'boolean',
-        'is_auto_submitted' => 'boolean',
-        'started_at' => 'datetime',
-        'completed_at' => 'datetime',
+        'is_passed'           => 'boolean',
+        'is_auto_submitted'   => 'boolean',
+        'generated_questions' => 'array',
+        'ai_answers'          => 'array',
+        'started_at'          => 'datetime',
+        'completed_at'        => 'datetime',
     ];
 
     public function user()

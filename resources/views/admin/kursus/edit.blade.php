@@ -28,6 +28,13 @@
                             </li>
 
                             <li class="nav-item">
+                                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#pane-prasyarat"
+                                    type="button">
+                                    Prasyarat
+                                </button>
+                            </li>
+
+                            <li class="nav-item">
                                 <button class="nav-link" data-bs-toggle="tab" data-bs-target="#pane-modul" type="button">
                                     Modul
                                 </button>
@@ -152,6 +159,27 @@
                                         </select>
                                     </div>
 
+                                </div>
+                            </div>
+
+                            {{-- ===================== TAB PRASYARAT ===================== --}}
+                            <div class="tab-pane fade" id="pane-prasyarat">
+                                <div class="row g-3">
+                                    <div class="col-12">
+                                        <label class="form-label">Kursus Prasyarat</label>
+                                        <p class="text-muted small">Pilih kursus yang harus diselesaikan oleh pengguna sebelum dapat mendaftar ke kursus ini. Kosongkan jika tidak ada prasyarat.</p>
+                                        @php
+                                            $selectedPrerequisites = old('prerequisites', $kursus->prerequisites->pluck('id')->toArray());
+                                        @endphp
+                                        <select name="prerequisites[]" class="form-control prerequisites-select" multiple>
+                                            @foreach ($allKursuses as $k)
+                                                <option value="{{ $k->id }}"
+                                                    {{ in_array($k->id, $selectedPrerequisites) ? 'selected' : '' }}>
+                                                    {{ $k->title }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
 
@@ -327,6 +355,10 @@
         $('.status').select2({
             placeholder: '- Pilih Status -',
             minimumResultsForSearch: Infinity
+        });
+        $('.prerequisites-select').select2({
+            placeholder: '- Pilih Kursus Prasyarat (opsional) -',
+            allowClear: true
         });
 
         document.querySelectorAll('button[data-bs-toggle="tab"]').forEach(btn => {

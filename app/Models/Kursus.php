@@ -21,6 +21,16 @@ class Kursus extends Model
         'status',
     ];
 
+    public function prerequisites()
+    {
+        return $this->belongsToMany(
+            Kursus::class,
+            'kursus_prerequisites',
+            'kursus_id',
+            'prerequisite_kursus_id'
+        );
+    }
+
     public function modules()
     {
         return $this->hasMany(Module::class)->orderBy('order', 'asc');

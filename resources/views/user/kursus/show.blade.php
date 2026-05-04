@@ -81,6 +81,34 @@
                         <p class="mb-0">{{ $kursus->short_description }}</p>
                     </div>
 
+                    {{-- Prerequisites --}}
+                    @if ($kursus->prerequisites->isNotEmpty())
+                        <div class="mb-4">
+                            <h5 class="fw-bold mb-3"><i class="ti ti-lock me-1"></i> Prasyarat Kursus</h5>
+                            <div class="list-group">
+                                @foreach ($kursus->prerequisites as $prereq)
+                                    @php
+                                        $isMet = Auth::check() && !$unmetPrerequisites->contains('id', $prereq->id);
+                                    @endphp
+                                    <a href="{{ route('user.kursus.show', $prereq->id) }}"
+                                        class="list-group-item list-group-item-action d-flex align-items-center gap-3">
+                                        @if ($isMet)
+                                            <i class="ti ti-circle-check text-success fs-5"></i>
+                                        @else
+                                            <i class="ti ti-circle-x text-danger fs-5"></i>
+                                        @endif
+                                        <span>{{ $prereq->title }}</span>
+                                        @if ($isMet)
+                                            <span class="badge bg-success ms-auto">Selesai</span>
+                                        @else
+                                            <span class="badge bg-danger ms-auto">Belum Selesai</span>
+                                        @endif
+                                    </a>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+
                     {{-- Description --}}
                     <div class="mb-4">
                         <h5 class="fw-bold mb-3">Tentang Kursus Ini</h5>
@@ -264,6 +292,16 @@
                                         </div>
                                     </div>
                                 @endif
+                            @elseif ($isLocked)
+                                <button class="btn btn-secondary w-100" disabled>
+                                    <i class="ti ti-lock me-1"></i> Kursus Terkunci
+                                </button>
+                                <div class="alert alert-warning mt-3 mb-0">
+                                    <small>
+                                        <i class="ti ti-alert-circle"></i>
+                                        Selesaikan kursus prasyarat di atas untuk membuka kursus ini.
+                                    </small>
+                                </div>
                             @else
                                 <form action="{{ route('user.kursus.enroll', $kursus->id) }}" method="POST">
                                     @csrf
@@ -273,9 +311,21 @@
                                 </form>
                             @endif
                         @else
-                            <a href="{{ route('login') }}" class="btn btn-primary w-100">
-                                <i class="ti ti-login"></i> Login untuk Mulai Belajar
-                            </a>
+                            @if ($isLocked)
+                                <button class="btn btn-secondary w-100" disabled>
+                                    <i class="ti ti-lock me-1"></i> Kursus Terkunci
+                                </button>
+                                <div class="alert alert-warning mt-3 mb-0">
+                                    <small>
+                                        <i class="ti ti-alert-circle"></i>
+                                        Login dan selesaikan kursus prasyarat untuk membuka kursus ini.
+                                    </small>
+                                </div>
+                            @else
+                                <a href="{{ route('login') }}" class="btn btn-primary w-100">
+                                    <i class="ti ti-login"></i> Login untuk Mulai Belajar
+                                </a>
+                            @endif
                         @endauth
                     @endif
                 </div>
