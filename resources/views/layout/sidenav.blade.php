@@ -77,6 +77,13 @@
                         <span class="menu-text"> Integritas Kuis </span>
                     </a>
                 </li>
+
+                <li class="side-nav-item">
+                    <a href="{{ route('admin.essay.index') }}" class="side-nav-link">
+                        <span class="menu-icon"><i class="ti ti-writing"></i></span>
+                        <span class="menu-text"> Penilaian Esai </span>
+                    </a>
+                </li>
             @endif
 
             <!-- 3. System Utilities -->

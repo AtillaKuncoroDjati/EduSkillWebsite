@@ -23,6 +23,9 @@ class UserQuizAttempt extends Model
         'auto_submit_reason',
         'generated_questions',
         'ai_answers',
+        'essay_answers',
+        'grading_status',
+        'admin_notes',
         'started_at',
         'completed_at',
     ];
@@ -32,6 +35,7 @@ class UserQuizAttempt extends Model
         'is_auto_submitted'   => 'boolean',
         'generated_questions' => 'array',
         'ai_answers'          => 'array',
+        'essay_answers'       => 'array',
         'started_at'          => 'datetime',
         'completed_at'        => 'datetime',
     ];

@@ -17,7 +17,9 @@ class ContentController extends Controller
     public function quiz(Content $content)
     {
         $content->load('questions.options');
-        return response()->json($content->append([]));
+        $data = $content->toArray();
+        $data['grading_type'] = $content->grading_type ?? 'ai';
+        return response()->json($data);
     }
 
     public function uploadImage(Request $request)
@@ -52,24 +54,16 @@ class ContentController extends Controller
         ], 400);
     }
 
-    /**
-     * Extract image file paths from HTML content
-     */
     private function extractImagePaths($content)
     {
         $images = [];
-
-        // Regex untuk menangkap src dari tag img
         preg_match_all('/<img[^>]+src=["\']([^"\']+)["\']/', $content, $matches);
 
         if (!empty($matches[1])) {
             foreach ($matches[1] as $url) {
-                // Filter hanya gambar yang ada di folder uploads/materi/
                 if (strpos($url, 'uploads/materi/') !== false) {
-                    // Extract path relatif dari URL
                     if (preg_match('/uploads\/materi\/(.+)$/', $url, $pathMatch)) {
-                        $fullPath = public_path('uploads/materi/' . $pathMatch[1]);
-                        $images[] = $fullPath;
+                        $images[] = public_path('uploads/materi/' . $pathMatch[1]);
                     }
                 }
             }
@@ -78,71 +72,40 @@ class ContentController extends Controller
         return $images;
     }
 
-    /**
-     * Delete images that are not in the new content
-     */
     private function deleteUnusedImages($oldContent, $newContent)
     {
         $oldImages = $this->extractImagePaths($oldContent);
         $newImages = $this->extractImagePaths($newContent);
-
-        // Cari gambar yang ada di content lama tapi tidak ada di content baru
         $imagesToDelete = array_diff($oldImages, $newImages);
 
         foreach ($imagesToDelete as $imagePath) {
-            // Hapus file jika ada
             if (File::exists($imagePath)) {
                 File::delete($imagePath);
-
-                // Log untuk debugging
                 \Log::info('Deleted image: ' . $imagePath);
-
-                // Coba hapus folder kosong
-                $directory = dirname($imagePath);
-                $this->deleteEmptyDirectory($directory);
+                $this->deleteEmptyDirectory(dirname($imagePath));
             }
         }
     }
 
-    /**
-     * Delete all images from content
-     */
     private function deleteAllImagesFromContent($content)
     {
-        $images = $this->extractImagePaths($content);
-
-        foreach ($images as $imagePath) {
+        foreach ($this->extractImagePaths($content) as $imagePath) {
             if (File::exists($imagePath)) {
                 File::delete($imagePath);
-
-                // Log untuk debugging
                 \Log::info('Deleted all images: ' . $imagePath);
-
-                // Coba hapus folder kosong
-                $directory = dirname($imagePath);
-                $this->deleteEmptyDirectory($directory);
+                $this->deleteEmptyDirectory(dirname($imagePath));
             }
         }
     }
 
-    /**
-     * Delete directory if empty
-     */
     private function deleteEmptyDirectory($directory)
     {
-        // Jangan hapus direktori utama
         $baseDir = public_path('uploads/materi');
 
         while ($directory != $baseDir && File::isDirectory($directory)) {
-            $files = File::files($directory);
-            $dirs = File::directories($directory);
-
-            // Jika kosong, hapus
-            if (empty($files) && empty($dirs)) {
+            if (empty(File::files($directory)) && empty(File::directories($directory))) {
                 File::deleteDirectory($directory);
                 \Log::info('Deleted empty directory: ' . $directory);
-
-                // Cek parent directory
                 $directory = dirname($directory);
             } else {
                 break;
@@ -152,39 +115,52 @@ class ContentController extends Controller
 
     public function store(Request $request, Module $module)
     {
-        $isAiGenerated = $request->type === 'quiz' && $request->boolean('is_ai_generated');
+        $type          = $request->input('type');
+        $quizType      = $request->input('quiz_type', 'multiple_choice');
+        $isAiGenerated = $type === 'quiz' && $request->boolean('is_ai_generated');
 
         $request->validate([
-            'title' => 'nullable|string|max:255',
-            'content' => 'required',
-            'type' => 'required|in:text,quiz',
+            'title'                  => 'nullable|string|max:255',
+            'content'                => 'required',
+            'type'                   => 'required|in:text,quiz',
+            'quiz_type'              => 'nullable|in:multiple_choice,essay',
             'integrity_mode_enabled' => 'nullable|boolean',
-            'require_fullscreen' => 'nullable|boolean',
-            'max_violations' => 'nullable|integer|min:1|max:20',
-            'ai_question_count' => 'nullable|integer|min:1|max:20',
+            'require_fullscreen'     => 'nullable|boolean',
+            'max_violations'         => 'nullable|integer|min:1|max:20',
+            'ai_question_count'      => 'nullable|integer|min:1|max:20',
         ]);
 
-        // Manual quiz requires questions; AI quiz does not
-        if ($request->type === 'quiz' && !$isAiGenerated) {
+        if ($type === 'quiz' && !$isAiGenerated && $quizType === 'multiple_choice') {
             $request->validate([
-                'questions' => 'required|array|min:1',
-                'questions.*.text' => 'required|string',
+                'questions'           => 'required|array|min:1',
+                'questions.*.text'    => 'required|string',
                 'questions.*.options' => 'required|array|min:2',
             ], [
-                'questions.required' => 'Quiz harus memiliki minimal 1 pertanyaan',
-                'questions.*.text.required' => 'Pertanyaan tidak boleh kosong',
+                'questions.required'           => 'Quiz harus memiliki minimal 1 pertanyaan',
+                'questions.*.text.required'    => 'Pertanyaan tidak boleh kosong',
                 'questions.*.options.required' => 'Setiap pertanyaan harus memiliki minimal 2 jawaban',
+            ]);
+        }
+
+        if ($type === 'quiz' && !$isAiGenerated && $quizType === 'essay') {
+            $request->validate([
+                'questions'        => 'required|array|min:1',
+                'questions.*.text' => 'required|string',
+            ], [
+                'questions.required'        => 'Esai harus memiliki minimal 1 pertanyaan',
+                'questions.*.text.required' => 'Pertanyaan tidak boleh kosong',
             ]);
         }
 
         $order = Content::where('module_id', $module->id)->max('order') + 1;
 
-        $type = $request->input('type');
         $content = Content::create([
-            'module_id' => $module->id,
-            'title'     => $request->input('title'),
-            'type'      => $type,
-            'content'   => $request->input('content'),
+            'module_id'              => $module->id,
+            'title'                  => $request->input('title'),
+            'type'                   => $type,
+            'content'                => $request->input('content'),
+            'quiz_type'              => $type === 'quiz' ? $quizType : 'multiple_choice',
+            'grading_type'           => ($type === 'quiz' && $quizType === 'essay') ? $request->input('grading_type', 'ai') : 'ai',
             'integrity_mode_enabled' => $type === 'quiz' ? (bool) $request->integrity_mode_enabled : false,
             'require_fullscreen'     => $type === 'quiz' ? (bool) $request->require_fullscreen : false,
             'max_violations'         => $type === 'quiz' ? (int) ($request->max_violations ?? 3) : 3,
@@ -197,16 +173,18 @@ class ContentController extends Controller
             foreach ($request->input('questions', []) as $qIndex => $question) {
                 $q = QuizQuestion::create([
                     'content_id' => $content->id,
-                    'question' => $question['text'],
-                    'order' => $qIndex,
+                    'question'   => $question['text'],
+                    'order'      => $qIndex,
                 ]);
 
-                foreach ($question['options'] as $opt) {
-                    QuizOption::create([
-                        'question_id' => $q->id,
-                        'option_text' => $opt['text'],
-                        'is_correct' => isset($opt['is_correct']) ? 1 : 0,
-                    ]);
+                if ($quizType === 'multiple_choice') {
+                    foreach ($question['options'] as $opt) {
+                        QuizOption::create([
+                            'question_id' => $q->id,
+                            'option_text' => $opt['text'],
+                            'is_correct'  => isset($opt['is_correct']) ? 1 : 0,
+                        ]);
+                    }
                 }
             }
         }
@@ -217,64 +195,76 @@ class ContentController extends Controller
 
     public function update(Request $request)
     {
-        $isAiGenerated = $request->input('type') === 'quiz' && $request->boolean('is_ai_generated');
+        $type          = $request->input('type');
+        $quizType      = $request->input('quiz_type', 'multiple_choice');
+        $isAiGenerated = $type === 'quiz' && $request->boolean('is_ai_generated');
 
         $request->validate([
-            'id' => 'required|exists:contents,id',
-            'title' => 'nullable|string|max:255',
-            'content' => 'required',
-            'type' => 'required|in:text,quiz',
+            'id'                     => 'required|exists:contents,id',
+            'title'                  => 'nullable|string|max:255',
+            'content'                => 'required',
+            'type'                   => 'required|in:text,quiz',
+            'quiz_type'              => 'nullable|in:multiple_choice,essay',
             'integrity_mode_enabled' => 'nullable|boolean',
-            'require_fullscreen' => 'nullable|boolean',
-            'max_violations' => 'nullable|integer|min:1|max:20',
-            'ai_question_count' => 'nullable|integer|min:1|max:20',
+            'require_fullscreen'     => 'nullable|boolean',
+            'max_violations'         => 'nullable|integer|min:1|max:20',
+            'ai_question_count'      => 'nullable|integer|min:1|max:20',
         ]);
 
-        if ($request->input('type') === 'quiz' && !$isAiGenerated) {
+        if ($type === 'quiz' && !$isAiGenerated && $quizType === 'multiple_choice') {
             $request->validate([
-                'questions' => 'required|array|min:1',
-                'questions.*.text' => 'required|string',
+                'questions'           => 'required|array|min:1',
+                'questions.*.text'    => 'required|string',
                 'questions.*.options' => 'required|array|min:2',
             ], [
-                'questions.required' => 'Quiz harus memiliki minimal 1 pertanyaan',
-                'questions.*.text.required' => 'Pertanyaan tidak boleh kosong',
+                'questions.required'           => 'Quiz harus memiliki minimal 1 pertanyaan',
+                'questions.*.text.required'    => 'Pertanyaan tidak boleh kosong',
                 'questions.*.options.required' => 'Setiap pertanyaan harus memiliki minimal 2 jawaban',
             ]);
         }
 
-        $content = Content::findOrFail($request->input('id'));
+        if ($type === 'quiz' && !$isAiGenerated && $quizType === 'essay') {
+            $request->validate([
+                'questions'        => 'required|array|min:1',
+                'questions.*.text' => 'required|string',
+            ], [
+                'questions.required'        => 'Esai harus memiliki minimal 1 pertanyaan',
+                'questions.*.text.required' => 'Pertanyaan tidak boleh kosong',
+            ]);
+        }
 
+        $content    = Content::findOrFail($request->input('id'));
         $oldContent = $content->content;
-        $oldType = $content->type;
+        $oldType    = $content->type;
 
         $content->update([
-            'title' => $request->input('title'),
-            'type' => $request->input('type'),
-            'content' => $request->input('content'),
-            'integrity_mode_enabled' => $request->input('type') === 'quiz' ? (bool) $request->integrity_mode_enabled : false,
-            'require_fullscreen' => $request->input('type') === 'quiz' ? (bool) $request->require_fullscreen : false,
-            'max_violations' => $request->input('type') === 'quiz' ? (int) ($request->max_violations ?? 3) : 3,
-            'is_ai_generated' => $isAiGenerated,
-            'ai_question_count' => $isAiGenerated ? (int) ($request->ai_question_count ?? 5) : 5,
+            'title'                  => $request->input('title'),
+            'type'                   => $type,
+            'content'                => $request->input('content'),
+            'quiz_type'              => $type === 'quiz' ? $quizType : 'multiple_choice',
+            'grading_type'           => ($type === 'quiz' && $quizType === 'essay') ? $request->input('grading_type', 'ai') : 'ai',
+            'integrity_mode_enabled' => $type === 'quiz' ? (bool) $request->integrity_mode_enabled : false,
+            'require_fullscreen'     => $type === 'quiz' ? (bool) $request->require_fullscreen : false,
+            'max_violations'         => $type === 'quiz' ? (int) ($request->max_violations ?? 3) : 3,
+            'is_ai_generated'        => $isAiGenerated,
+            'ai_question_count'      => $isAiGenerated ? (int) ($request->ai_question_count ?? 5) : 5,
         ]);
 
         if ($oldContent) {
             $this->deleteUnusedImages($oldContent, $request->input('content'));
         }
 
-        if ($request->input('type') === 'text') {
+        if ($type === 'text') {
             if ($oldType === 'quiz') {
                 foreach ($content->questions as $q) {
                     $q->options()->delete();
                     $q->delete();
                 }
             }
-
             session()->flash('success_message', 'Materi telah diperbarui.');
             return back();
         }
 
-        // Always clear old manual questions (AI quiz has none; switching modes also clears)
         foreach ($content->questions as $q) {
             $q->options()->delete();
             $q->delete();
@@ -285,20 +275,21 @@ class ContentController extends Controller
             return back();
         }
 
-        // Buat quiz questions baru
         foreach ($request->questions as $qIndex => $question) {
             $newQ = QuizQuestion::create([
                 'content_id' => $content->id,
-                'question' => $question['text'],
-                'order' => $qIndex,
+                'question'   => $question['text'],
+                'order'      => $qIndex,
             ]);
 
-            foreach ($question['options'] as $opt) {
-                QuizOption::create([
-                    'question_id' => $newQ->id,
-                    'option_text' => $opt['text'],
-                    'is_correct' => isset($opt['is_correct']) ? 1 : 0,
-                ]);
+            if ($quizType === 'multiple_choice') {
+                foreach ($question['options'] as $opt) {
+                    QuizOption::create([
+                        'question_id' => $newQ->id,
+                        'option_text' => $opt['text'],
+                        'is_correct'  => isset($opt['is_correct']) ? 1 : 0,
+                    ]);
+                }
             }
         }
 
@@ -320,12 +311,10 @@ class ContentController extends Controller
         $content = Content::find($request->id);
 
         if ($content) {
-            // Hapus semua gambar yang ada di content sebelum menghapus content
             if ($content->content) {
                 $this->deleteAllImagesFromContent($content->content);
             }
 
-            // Hapus quiz questions dan options jika ada
             if ($content->type === 'quiz') {
                 foreach ($content->questions as $q) {
                     $q->options()->delete();

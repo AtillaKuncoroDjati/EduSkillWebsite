@@ -475,8 +475,18 @@
         }
 
         function renderQuizContent(data) {
-            if (data.already_passed) {
+            if (data.pending_review) {
+                renderEssayPendingReview(data);
+                return;
+            }
+
+            if (data.already_passed || (data.quiz_type === 'essay' && data.grading_status === 'graded' && !data.already_passed)) {
                 renderQuizReview(data);
+                return;
+            }
+
+            if (data.quiz_type === 'essay') {
+                renderEssayForm(data);
                 return;
             }
 
@@ -596,7 +606,138 @@
             });
         }
 
+        function renderEssayForm(data) {
+            const integrity = data.integrity_settings || { enabled: false, require_fullscreen: false, max_violations: 0 };
+
+            let html = '<div class="quiz-wrapper">';
+            html += '<h3 class="mb-4">' + escapeHtml(data.title || 'Esai') + '</h3>';
+            const isManualGrading = data.grading_type === 'manual';
+            const gradingNote = isManualGrading
+                ? 'Jawab pertanyaan esai berikut. Jawaban Anda akan dinilai oleh admin dalam 24 jam.'
+                : 'Jawab ' + data.questions.length + ' pertanyaan esai berikut. Jawaban Anda akan dinilai oleh AI. Nilai minimal 70% untuk lulus.';
+            html += '<div class="alert alert-info"><i class="ti ti-writing me-2"></i>' + gradingNote + '</div>';
+
+            if (integrity.enabled) {
+                html += '<div class="card border-warning mb-3" id="integrity-rules-card"><div class="card-body">';
+                html += '<h5 class="mb-3"><i class="ti ti-shield-lock me-2"></i>Quiz Integrity Mode</h5>';
+                html += '<ul class="mb-3"><li>Perpindahan tab akan dipantau.</li><li>Kehilangan fokus browser akan dipantau.</li>';
+                if (integrity.require_fullscreen) html += '<li>Fullscreen wajib selama kuis berlangsung.</li>';
+                html += '<li>Kuis dapat otomatis dikirim jika pelanggaran mencapai batas.</li></ul>';
+                html += '<p class="mb-3" id="integrity-counter">Pelanggaran: 0/' + integrity.max_violations + '</p>';
+                html += '<button class="btn btn-warning" type="button" onclick="startQuizWithIntegrity(\'' + data.id + '\', ' + integrity.require_fullscreen + ', ' + integrity.max_violations + ')">Saya Mengerti & Mulai Kuis</button>';
+                html += '</div></div>';
+                html += '<div id="quiz-form-wrapper" style="display:none;">';
+            }
+
+            html += '<form id="quiz-form" onsubmit="submitEssay(event, \'' + data.id + '\')">';
+            data.questions.forEach(function(q, i) {
+                html += '<div class="card mb-3"><div class="card-body">';
+                html += '<h6 class="mb-3"><span class="badge bg-primary me-2">' + (i + 1) + '</span>' + escapeHtml(q.question) + '</h6>';
+                html += '<textarea class="form-control" name="essay_' + i + '" rows="4" placeholder="Tulis jawaban Anda di sini..." required></textarea>';
+                html += '</div></div>';
+            });
+            html += '<div class="d-flex justify-content-between mt-4">';
+            html += '<button type="button" class="btn btn-outline-secondary" onclick="previousContent()"><i class="ti ti-arrow-left"></i> Sebelumnya</button>';
+            const submitLabel = isManualGrading ? 'Kirim Jawaban' : 'Submit & Nilai dengan AI';
+            html += '<button type="submit" class="btn btn-success" id="essay-submit-btn"><i class="ti ti-send"></i> ' + submitLabel + '</button>';
+            html += '</div></form>';
+
+            if (integrity.enabled) html += '</div>';
+            html += '</div>';
+            $('#content-display').html(html);
+
+            integrityState.enabled = !!integrity.enabled;
+            integrityState.requireFullscreen = !!integrity.require_fullscreen;
+            integrityState.maxViolations = integrity.max_violations || 0;
+
+            if (!integrity.enabled) {
+                startQuizAttempt(data.id, false);
+            }
+        }
+
+        function submitEssay(event, contentId) {
+            event.preventDefault();
+            const form = document.getElementById('quiz-form');
+            const formData = new FormData(form);
+            const answers = {};
+            for (const [key, val] of formData.entries()) {
+                answers[key] = val;
+            }
+
+            $('#essay-submit-btn').prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2"></span>Mengirim jawaban...');
+
+            $.ajax({
+                url: '/user/daftar-kursus/{{ $kursus->id }}/quiz/' + contentId + '/submit',
+                type: 'POST',
+                data: {
+                    _token: '{{ csrf_token() }}',
+                    attempt_id: currentQuizAttemptId,
+                    answers: answers,
+                },
+                success: function(res) {
+                    stopIntegrityMonitoring();
+
+                    // Manual grading: show pending state
+                    if (res.pending_review) {
+                        renderEssayPendingReview({ title: '' });
+                        return;
+                    }
+
+                    const passed = res.is_passed;
+                    const color  = passed ? 'success' : 'warning';
+                    const icon   = passed ? 'ti-circle-check' : 'ti-circle-x';
+
+                    let html = '<div class="quiz-review-wrapper">';
+                    html += '<h3 class="mb-4">Hasil Esai</h3>';
+                    html += '<div class="alert alert-' + color + ' mb-4"><i class="ti ' + icon + ' me-2"></i>';
+                    html += passed ? 'Selamat! Anda lulus esai ini.' : 'Nilai Anda belum mencapai 70. Silakan coba lagi.';
+                    html += '</div>';
+
+                    html += '<div class="row g-3 mb-4">';
+                    html += '<div class="col-md-4"><div class="card border-' + color + '"><div class="card-body text-center">';
+                    html += '<i class="ti ti-star fs-2 text-' + color + '"></i>';
+                    html += '<h4 class="mt-2 mb-0 text-' + color + '">' + res.score + '%</h4>';
+                    html += '<small class="text-muted">Nilai Rata-rata</small></div></div></div>';
+                    html += '<div class="col-md-4"><div class="card"><div class="card-body text-center">';
+                    html += '<i class="ti ti-check fs-2 text-success"></i>';
+                    html += '<h4 class="mt-2 mb-0">' + res.correct_answers + '/' + res.total_questions + '</h4>';
+                    html += '<small class="text-muted">Soal ≥70</small></div></div></div>';
+                    html += '</div>';
+
+                    html += '<h5 class="mb-3">Detail Penilaian AI</h5>';
+                    (res.essay_answers || []).forEach(function(ea, i) {
+                        const sc = ea.score >= 70 ? 'success' : 'danger';
+                        html += '<div class="card mb-3 border-' + sc + '">';
+                        html += '<div class="card-header bg-light d-flex justify-content-between"><strong>Soal ' + (i+1) + '</strong>';
+                        html += '<span class="badge bg-' + sc + '">' + ea.score + '/100</span></div>';
+                        html += '<div class="card-body">';
+                        html += '<p class="fw-bold mb-1">' + escapeHtml(ea.question) + '</p>';
+                        html += '<div class="border rounded p-2 mb-2 bg-light"><small class="text-muted">Jawaban Anda:</small><p class="mb-0">' + escapeHtml(ea.answer || '-') + '</p></div>';
+                        html += '<div class="alert alert-' + sc + ' mb-0 py-2"><i class="ti ti-robot me-1"></i><strong>Feedback AI:</strong> ' + escapeHtml(ea.feedback) + '</div>';
+                        html += '</div></div>';
+                    });
+
+                    html += '<div class="d-flex justify-content-between mt-4">';
+                    html += '<button type="button" class="btn btn-outline-secondary" onclick="previousContent()"><i class="ti ti-arrow-left"></i> Sebelumnya</button>';
+                    html += '<button type="button" class="btn btn-primary" onclick="nextContent()">Selanjutnya <i class="ti ti-arrow-right"></i></button>';
+                    html += '</div></div>';
+
+                    $('#content-display').html(html);
+                    updateProgressBar(res.progress);
+                },
+                error: function(xhr) {
+                    $('#essay-submit-btn').prop('disabled', false).html('<i class="ti ti-send"></i> Submit & Nilai dengan AI');
+                    const msg = (xhr.responseJSON && xhr.responseJSON.error) ? xhr.responseJSON.error : 'Gagal menilai esai.';
+                    Swal.fire('Error', msg, 'error');
+                }
+            });
+        }
+
         function renderQuizReview(data) {
+            if (data.quiz_type === 'essay') {
+                renderEssayReview(data);
+                return;
+            }
             const attempt = data.attempt;
             const scoreClass = attempt.score >= 70 ? 'success' : 'danger';
 
@@ -880,6 +1021,77 @@
                     window.location.href = '{{ route('user.kursus.show', $kursus->id) }}';
                 });
             }
+        }
+
+        function renderEssayPendingReview(data) {
+            let html = '<div class="quiz-review-wrapper">';
+            html += '<h3 class="mb-4">' + escapeHtml(data.title || 'Esai') + '</h3>';
+            html += '<div class="alert alert-warning mb-4">';
+            html += '<i class="ti ti-clock me-2"></i><strong>Jawaban kamu telah dikirim.</strong><br>';
+            html += 'Tunggu penilaian admin dalam 24 jam. Kamu akan mendapat notifikasi saat sudah dinilai.';
+            html += '</div>';
+            html += '<div class="text-center py-4">';
+            html += '<i class="ti ti-hourglass" style="font-size:64px;color:#f0ad4e;"></i>';
+            html += '<h5 class="mt-3 text-muted">Sedang Menunggu Penilaian Admin</h5>';
+            html += '</div>';
+            html += '<div class="d-flex justify-content-between mt-4">';
+            html += '<button type="button" class="btn btn-outline-secondary" onclick="previousContent()"><i class="ti ti-arrow-left"></i> Sebelumnya</button>';
+            html += '<button type="button" class="btn btn-primary" onclick="nextContent()">Selanjutnya <i class="ti ti-arrow-right"></i></button>';
+            html += '</div></div>';
+            $('#content-display').html(html);
+        }
+
+        function renderEssayReview(data) {
+            const attempt = data.attempt;
+            const isManual = data.grading_type === 'manual';
+            const scoreClass = attempt.score >= 70 ? 'success' : 'danger';
+            const essayAnswers = data.quiz_details || [];
+
+            let html = '<div class="quiz-review-wrapper">';
+            html += '<h3 class="mb-4">' + escapeHtml(data.title || 'Esai') + '</h3>';
+            html += '<div class="alert alert-' + (data.already_passed ? 'success' : 'warning') + ' mb-4">';
+            html += '<i class="ti ti-circle-check me-2"></i>Esai dinilai pada ' + (attempt.completed_at || '-');
+            html += data.already_passed ? ' — <strong>Lulus</strong>' : ' — <strong>Belum Lulus</strong>';
+            html += '</div>';
+
+            html += '<div class="row g-3 mb-4">';
+            html += '<div class="col-md-4"><div class="card border-' + scoreClass + '"><div class="card-body text-center">';
+            html += '<i class="ti ti-star fs-2 text-' + scoreClass + '"></i>';
+            html += '<h4 class="mt-2 mb-0 text-' + scoreClass + '">' + attempt.score + '%</h4>';
+            html += '<small class="text-muted">Nilai Rata-rata</small></div></div></div>';
+            html += '<div class="col-md-4"><div class="card"><div class="card-body text-center">';
+            html += '<h4 class="mt-2 mb-0">' + attempt.correct_answers + '/' + attempt.total_questions + '</h4>';
+            html += '<small class="text-muted">Soal ≥70</small></div></div></div>';
+            html += '</div>';
+
+            if (isManual && attempt.admin_notes) {
+                html += '<div class="alert alert-info mb-3"><i class="ti ti-note me-2"></i><strong>Catatan Admin:</strong> ' + escapeHtml(attempt.admin_notes) + '</div>';
+            }
+
+            const feedbackLabel = isManual ? 'Feedback Admin' : 'Feedback AI';
+            const feedbackIcon  = isManual ? 'ti-user-check' : 'ti-robot';
+
+            html += '<h5 class="mb-3">Detail Penilaian ' + (isManual ? 'Admin' : 'AI') + '</h5>';
+            const pairs = Object.values(essayAnswers);
+            pairs.forEach(function(ea, i) {
+                const sc = (ea.score >= 70) ? 'success' : 'danger';
+                html += '<div class="card mb-3 border-' + sc + '">';
+                html += '<div class="card-header bg-light d-flex justify-content-between"><strong>Soal ' + (i+1) + '</strong>';
+                html += '<span class="badge bg-' + sc + '">' + (ea.score !== undefined ? ea.score + '/100' : '-') + '</span></div>';
+                html += '<div class="card-body">';
+                html += '<p class="fw-bold mb-1">' + escapeHtml(ea.question || '') + '</p>';
+                html += '<div class="border rounded p-2 mb-2 bg-light"><small class="text-muted">Jawaban Anda:</small><p class="mb-0">' + escapeHtml(ea.answer || '-') + '</p></div>';
+                if (ea.feedback) {
+                    html += '<div class="alert alert-' + sc + ' mb-0 py-2"><i class="ti ' + feedbackIcon + ' me-1"></i><strong>' + feedbackLabel + ':</strong> ' + escapeHtml(ea.feedback) + '</div>';
+                }
+                html += '</div></div>';
+            });
+
+            html += '<div class="d-flex justify-content-between mt-4">';
+            html += '<button type="button" class="btn btn-outline-secondary" onclick="previousContent()"><i class="ti ti-arrow-left"></i> Sebelumnya</button>';
+            html += '<button type="button" class="btn btn-primary" onclick="nextContent()">Selanjutnya <i class="ti ti-arrow-right"></i></button>';
+            html += '</div></div>';
+            $('#content-display').html(html);
         }
 
         function previousContent() {

@@ -13,6 +13,7 @@ use App\Http\Controllers\User\ProfileController;
 use App\Http\Controllers\Admin\KursusController;
 use App\Http\Controllers\Admin\ContentController;
 use App\Http\Controllers\Admin\QuizIntegrityController;
+use App\Http\Controllers\Admin\EssayGradingController;
 use App\Http\Controllers\Admin\ModuleController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\System\BackupController;
@@ -136,6 +137,13 @@ Route::middleware(['auth', 'check.access'])->group(function () {
 
         Route::get('{kursus}/peserta', [KursusController::class, 'peserta'])->name('admin.kursus.peserta');
         Route::post('{kursus}/peserta/request', [KursusController::class, 'pesertaRequest'])->name('admin.kursus.peserta.request');
+    });
+
+    Route::prefix('admin/essay')->middleware('access:admin')->group(function () {
+        Route::get('/', [EssayGradingController::class, 'index'])->name('admin.essay.index');
+        Route::post('list', [EssayGradingController::class, 'list'])->name('admin.essay.list');
+        Route::get('{id}/show', [EssayGradingController::class, 'show'])->name('admin.essay.show');
+        Route::post('{id}/grade', [EssayGradingController::class, 'grade'])->name('admin.essay.grade');
     });
 
     Route::prefix('admin/pengguna')->middleware('access:admin')->group(function () {

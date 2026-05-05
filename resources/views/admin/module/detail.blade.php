@@ -72,6 +72,11 @@
                                     {{-- Quiz Info --}}
                                     @if ($materi->type === 'quiz')
                                         <div class="mt-2 d-flex align-items-center gap-2">
+                                            @if ($materi->quiz_type === 'essay')
+                                                <span class="badge bg-success me-1">
+                                                    <i class="ti ti-writing"></i> Esai
+                                                </span>
+                                            @endif
                                             @if ($materi->is_ai_generated)
                                                 <span class="badge bg-purple" style="background:#7c3aed;">
                                                     <i class="ti ti-sparkles"></i> AI Generated
@@ -155,7 +160,38 @@
                         </div>
 
                         <div id="create-quiz-builder" class="d-none">
-                            <div class="card border mb-3 border-purple" style="border-color:#7c3aed!important;">
+                            {{-- Quiz Type --}}
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Tipe Soal</label>
+                                <div class="d-flex gap-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="quiz_type" id="create-qt-mc" value="multiple_choice" checked>
+                                        <label class="form-check-label" for="create-qt-mc"><i class="ti ti-list-check me-1"></i>Pilihan Ganda</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="quiz_type" id="create-qt-essay" value="essay">
+                                        <label class="form-check-label" for="create-qt-essay"><i class="ti ti-writing me-1"></i>Esai</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Grading Type (essay only) --}}
+                            <div class="mb-3 d-none" id="create-grading-type-wrapper">
+                                <label class="form-label fw-bold">Penilaian Esai</label>
+                                <div class="d-flex gap-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="grading_type" id="create-gt-ai" value="ai" checked>
+                                        <label class="form-check-label" for="create-gt-ai"><i class="ti ti-sparkles me-1"></i>Dinilai oleh AI (otomatis)</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="grading_type" id="create-gt-manual" value="manual">
+                                        <label class="form-check-label" for="create-gt-manual"><i class="ti ti-user-check me-1"></i>Dinilai oleh Admin (manual)</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- AI Toggle --}}
+                            <div class="card border mb-3" style="border-color:#7c3aed!important;">
                                 <div class="card-body">
                                     <div class="form-check form-switch mb-2">
                                         <input class="form-check-input" type="checkbox" id="create-ai-generated"
@@ -172,6 +208,7 @@
                                 </div>
                             </div>
 
+                            {{-- Integrity Settings --}}
                             <div class="card border mb-3">
                                 <div class="card-body">
                                     <h6 class="mb-3">Pengaturan Integritas Kuis</h6>
@@ -190,12 +227,24 @@
                                 </div>
                             </div>
 
+                            {{-- Manual question builders (hidden when AI active) --}}
                             <div id="create-manual-quiz-wrapper">
-                            <h6>Pertanyaan Kuis</h6>
-                            <div id="create-questions-container"></div>
-                            <button type="button" class="btn btn-sm btn-soft-primary mt-2" id="create-add-question">
-                                Tambah Pertanyaan
-                            </button>
+                                {{-- Multiple-choice questions --}}
+                                <div id="create-mc-wrapper">
+                                    <h6>Pertanyaan Pilihan Ganda</h6>
+                                    <div id="create-questions-container"></div>
+                                    <button type="button" class="btn btn-sm btn-soft-primary mt-2" id="create-add-question">
+                                        <i class="ti ti-plus"></i> Tambah Pertanyaan
+                                    </button>
+                                </div>
+                                {{-- Essay questions --}}
+                                <div id="create-essay-wrapper" class="d-none">
+                                    <h6>Pertanyaan Esai</h6>
+                                    <div id="create-essay-container"></div>
+                                    <button type="button" class="btn btn-sm btn-soft-primary mt-2" id="create-add-essay-question">
+                                        <i class="ti ti-plus"></i> Tambah Pertanyaan
+                                    </button>
+                                </div>
                             </div>{{-- end create-manual-quiz-wrapper --}}
                         </div>
                     </div>
@@ -243,6 +292,37 @@
                         </div>
 
                         <div id="edit-quiz-builder" class="d-none">
+                            {{-- Quiz Type --}}
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Tipe Soal</label>
+                                <div class="d-flex gap-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="quiz_type" id="edit-qt-mc" value="multiple_choice" checked>
+                                        <label class="form-check-label" for="edit-qt-mc"><i class="ti ti-list-check me-1"></i>Pilihan Ganda</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="quiz_type" id="edit-qt-essay" value="essay">
+                                        <label class="form-check-label" for="edit-qt-essay"><i class="ti ti-writing me-1"></i>Esai</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Grading Type (essay only) --}}
+                            <div class="mb-3 d-none" id="edit-grading-type-wrapper">
+                                <label class="form-label fw-bold">Penilaian Esai</label>
+                                <div class="d-flex gap-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="grading_type" id="edit-gt-ai" value="ai" checked>
+                                        <label class="form-check-label" for="edit-gt-ai"><i class="ti ti-sparkles me-1"></i>Dinilai oleh AI (otomatis)</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="grading_type" id="edit-gt-manual" value="manual">
+                                        <label class="form-check-label" for="edit-gt-manual"><i class="ti ti-user-check me-1"></i>Dinilai oleh Admin (manual)</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- AI Toggle --}}
                             <div class="card border mb-3" style="border-color:#7c3aed!important;">
                                 <div class="card-body">
                                     <div class="form-check form-switch mb-2">
@@ -260,6 +340,7 @@
                                 </div>
                             </div>
 
+                            {{-- Integrity Settings --}}
                             <div class="card border mb-3">
                                 <div class="card-body">
                                     <h6 class="mb-3">Pengaturan Integritas Kuis</h6>
@@ -278,12 +359,24 @@
                                 </div>
                             </div>
 
+                            {{-- Manual question builders (hidden when AI active) --}}
                             <div id="edit-manual-quiz-wrapper">
-                            <h6>Pertanyaan Kuis</h6>
-                            <div id="edit-questions-container"></div>
-                            <button type="button" class="btn btn-sm btn-soft-primary mt-2" id="edit-add-question">
-                                Tambah Pertanyaan
-                            </button>
+                                {{-- Multiple-choice questions --}}
+                                <div id="edit-mc-wrapper">
+                                    <h6>Pertanyaan Pilihan Ganda</h6>
+                                    <div id="edit-questions-container"></div>
+                                    <button type="button" class="btn btn-sm btn-soft-primary mt-2" id="edit-add-question">
+                                        <i class="ti ti-plus"></i> Tambah Pertanyaan
+                                    </button>
+                                </div>
+                                {{-- Essay questions --}}
+                                <div id="edit-essay-wrapper" class="d-none">
+                                    <h6>Pertanyaan Esai</h6>
+                                    <div id="edit-essay-container"></div>
+                                    <button type="button" class="btn btn-sm btn-soft-primary mt-2" id="edit-add-essay-question">
+                                        <i class="ti ti-plus"></i> Tambah Pertanyaan
+                                    </button>
+                                </div>
                             </div>{{-- end edit-manual-quiz-wrapper --}}
                         </div>
                     </div>
@@ -555,9 +648,13 @@
             $('#create-type').val('text').trigger('change');
             createQIndex = 0;
             $('#create-questions-container').html('');
+            $('#create-essay-container').html('');
             $('#create-integrity-enabled').prop('checked', false);
             $('#create-require-fullscreen').prop('checked', false);
             $('input[name="max_violations"]').val(3);
+            $('#create-qt-mc').prop('checked', true).trigger('change');
+            $('#create-gt-ai').prop('checked', true);
+            $('#create-grading-type-wrapper').addClass('d-none');
             createQuill.setText('');
         });
 
@@ -573,6 +670,16 @@
             adjustEditorHeight(type, false);
         });
 
+        // Quiz-type radio toggle (create)
+        $('input[name="quiz_type"]').on('change', function() {
+            if (!$(this).closest('#create-quiz-builder').length) return;
+            const isEssay = $(this).val() === 'essay';
+            $('#create-mc-wrapper').toggleClass('d-none', isEssay);
+            $('#create-essay-wrapper').toggleClass('d-none', !isEssay);
+            $('#create-grading-type-wrapper').toggleClass('d-none', !isEssay);
+            if (!isEssay) $('#create-gt-ai').prop('checked', true);
+        });
+
         $('#create-ai-generated').on('change', function() {
             if ($(this).is(':checked')) {
                 $('#create-ai-count-wrapper').removeClass('d-none');
@@ -581,6 +688,22 @@
                 $('#create-ai-count-wrapper').addClass('d-none');
                 $('#create-manual-quiz-wrapper').removeClass('d-none');
             }
+        });
+
+        // Add essay question (create)
+        $('#create-add-essay-question').on('click', function() {
+            const idx = $('#create-essay-container .essay-question-block').length;
+            $('#create-essay-container').append(`
+                <div class="card mb-2 essay-question-block">
+                    <div class="card-body d-flex gap-2 align-items-start">
+                        <span class="mt-2 fw-bold text-muted">${idx + 1}.</span>
+                        <input type="text" name="questions[${idx}][text]" class="form-control"
+                            placeholder="Tulis pertanyaan esai..." required>
+                        <button type="button" class="btn btn-sm btn-soft-danger remove-essay-question">
+                            <i class="ti ti-trash"></i>
+                        </button>
+                    </div>
+                </div>`);
         });
 
         $('#create-add-question').on('click', function() {
@@ -633,6 +756,11 @@
             $(`.question-block[data-index="${q}"] .options-container`).append(optHtml);
         });
 
+        // Remove essay question
+        $(document).on('click', '.remove-essay-question', function() {
+            $(this).closest('.essay-question-block').remove();
+        });
+
         // Submit Create Form
         $('#form-create-material').on('submit', function(e) {
             const content = createQuill.root.innerHTML;
@@ -642,11 +770,19 @@
             if (type === 'quiz') {
                 const isAi = $('#create-ai-generated').is(':checked');
                 if (!isAi) {
-                    const questionCount = $('#create-questions-container .question-block').length;
-                    if (questionCount === 0) {
-                        e.preventDefault();
-                        Swal.fire('Error', 'Quiz harus memiliki minimal 1 pertanyaan', 'error');
-                        return false;
+                    const quizType = $('input[name="quiz_type"]:checked').val();
+                    if (quizType === 'essay') {
+                        if ($('#create-essay-container .essay-question-block').length === 0) {
+                            e.preventDefault();
+                            Swal.fire('Error', 'Esai harus memiliki minimal 1 pertanyaan', 'error');
+                            return false;
+                        }
+                    } else {
+                        if ($('#create-questions-container .question-block').length === 0) {
+                            e.preventDefault();
+                            Swal.fire('Error', 'Quiz harus memiliki minimal 1 pertanyaan', 'error');
+                            return false;
+                        }
                     }
                 }
             }
@@ -692,6 +828,16 @@
                     $('#edit-require-fullscreen').prop('checked', !!res.require_fullscreen);
                     $('#edit-max-violations').val(res.max_violations || 3);
 
+                    // Populate quiz_type
+                    const quizType = res.quiz_type || 'multiple_choice';
+                    $(`#edit-quiz-builder input[name="quiz_type"][value="${quizType}"]`).prop('checked', true);
+                    $('#edit-mc-wrapper').toggleClass('d-none', quizType === 'essay');
+                    $('#edit-essay-wrapper').toggleClass('d-none', quizType !== 'essay');
+                    $('#edit-grading-type-wrapper').toggleClass('d-none', quizType !== 'essay');
+                    const gradingType = res.grading_type || 'ai';
+                    $(`#edit-quiz-builder input[name="grading_type"][value="${gradingType}"]`).prop('checked', true);
+                    $('#edit-essay-container').html('');
+
                     // Populate AI quiz fields
                     const isAi = !!res.is_ai_generated;
                     $('#edit-ai-generated').prop('checked', isAi);
@@ -704,7 +850,23 @@
                         $('#edit-manual-quiz-wrapper').removeClass('d-none');
                     }
 
-                    if (type === 'quiz') {
+                    if (type === 'quiz' && quizType === 'essay') {
+                        // Render essay question inputs
+                        res.questions.forEach((q, i) => {
+                            $('#edit-essay-container').append(`
+                                <div class="card mb-2 essay-question-block">
+                                    <div class="card-body d-flex gap-2 align-items-start">
+                                        <span class="mt-2 fw-bold text-muted">${i + 1}.</span>
+                                        <input type="text" name="questions[${i}][text]"
+                                            value="${q.question.replace(/"/g, '&quot;')}"
+                                            class="form-control" required>
+                                        <button type="button" class="btn btn-sm btn-soft-danger remove-essay-question">
+                                            <i class="ti ti-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>`);
+                        });
+                    } else if (type === 'quiz') {
                         res.questions.forEach((q, i) => {
                             let qHtml = `
                             <div class="card mb-3 edit-question-block" data-index="${i}">
@@ -725,12 +887,8 @@
                                         <div class="edit-options-container">
                         `;
 
-                            q.options.forEach((opt, oi) => {
-                                // Convert to boolean to handle string "1" or "0" from backend
-                                const isChecked = (opt.is_correct == 1 || opt
-                                    .is_correct === true || opt.is_correct ===
-                                    'true');
-
+                            (q.options || []).forEach((opt, oi) => {
+                                const isChecked = (opt.is_correct == 1 || opt.is_correct === true || opt.is_correct === 'true');
                                 qHtml += `
                                 <div class="input-group mb-2 option-block">
                                     <span class="input-group-text">
@@ -742,8 +900,7 @@
                                     <button type="button" class="btn btn-outline-danger remove-option">
                                         <i class="ti ti-x"></i>
                                     </button>
-                                </div>
-                            `;
+                                </div>`;
                             });
 
                             qHtml += `
@@ -753,13 +910,10 @@
                                         <i class="ti ti-plus"></i> Tambah Jawaban
                                     </button>
                                 </div>
-                            </div>
-                        `;
+                            </div>`;
 
                             $('#edit-questions-container').append(qHtml);
                         });
-
-                        // Set editQIndex setelah semua pertanyaan dimuat
                         editQIndex = res.questions.length;
                     }
 
@@ -840,6 +994,31 @@
             $(`.edit-question-block[data-index="${q}"] .edit-options-container`).append(optHtml);
         });
 
+        // Quiz-type radio toggle (edit)
+        $('#edit-quiz-builder input[name="quiz_type"]').on('change', function() {
+            const isEssay = $(this).val() === 'essay';
+            $('#edit-mc-wrapper').toggleClass('d-none', isEssay);
+            $('#edit-essay-wrapper').toggleClass('d-none', !isEssay);
+            $('#edit-grading-type-wrapper').toggleClass('d-none', !isEssay);
+            if (!isEssay) $('#edit-gt-ai').prop('checked', true);
+        });
+
+        // Add essay question (edit)
+        $('#edit-add-essay-question').on('click', function() {
+            const idx = $('#edit-essay-container .essay-question-block').length;
+            $('#edit-essay-container').append(`
+                <div class="card mb-2 essay-question-block">
+                    <div class="card-body d-flex gap-2 align-items-start">
+                        <span class="mt-2 fw-bold text-muted">${idx + 1}.</span>
+                        <input type="text" name="questions[${idx}][text]" class="form-control"
+                            placeholder="Tulis pertanyaan esai..." required>
+                        <button type="button" class="btn btn-sm btn-soft-danger remove-essay-question">
+                            <i class="ti ti-trash"></i>
+                        </button>
+                    </div>
+                </div>`);
+        });
+
         // Submit Edit Form
         $('#form-edit-material').on('submit', function(e) {
             const content = editQuill.root.innerHTML;
@@ -849,11 +1028,19 @@
             if (type === 'quiz') {
                 const isAi = $('#edit-ai-generated').is(':checked');
                 if (!isAi) {
-                    const questionCount = $('#edit-questions-container .edit-question-block').length;
-                    if (questionCount === 0) {
-                        e.preventDefault();
-                        Swal.fire('Error', 'Quiz harus memiliki minimal 1 pertanyaan', 'error');
-                        return false;
+                    const quizType = $('#edit-quiz-builder input[name="quiz_type"]:checked').val();
+                    if (quizType === 'essay') {
+                        if ($('#edit-essay-container .essay-question-block').length === 0) {
+                            e.preventDefault();
+                            Swal.fire('Error', 'Esai harus memiliki minimal 1 pertanyaan', 'error');
+                            return false;
+                        }
+                    } else {
+                        if ($('#edit-questions-container .edit-question-block').length === 0) {
+                            e.preventDefault();
+                            Swal.fire('Error', 'Quiz harus memiliki minimal 1 pertanyaan', 'error');
+                            return false;
+                        }
                     }
                 }
             }

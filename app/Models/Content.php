@@ -28,6 +28,8 @@ class Content extends Model
         'max_violations',
         'is_ai_generated',
         'ai_question_count',
+        'quiz_type',
+        'grading_type',
         'order',
     ];
 
