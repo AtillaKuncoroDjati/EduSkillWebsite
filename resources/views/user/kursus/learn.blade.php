@@ -294,11 +294,167 @@
                 padding-bottom: 80px !important;
             }
         }
+
+        /* ── Coding Challenge Split Panel ─────────────────────────── */
+        .coding-panel {
+            display: flex;
+            height: calc(100vh - 70px);
+            overflow: hidden;
+        }
+
+        .coding-question {
+            width: 42%;
+            min-width: 280px;
+            background: #1e1e2e;
+            color: #cdd6f4;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            border-right: 2px solid #313244;
+        }
+
+        .coding-question .question-body {
+            padding: 20px 24px;
+            flex: 1;
+        }
+
+        .coding-question h2 {
+            color: #cba6f7;
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .coding-question .ql-editor,
+        .coding-question .content-text {
+            color: #cdd6f4;
+            font-size: 0.9rem;
+            line-height: 1.7;
+        }
+
+        .coding-question .ql-editor h1,
+        .coding-question .ql-editor h2,
+        .coding-question .ql-editor h3 { color: #cba6f7; }
+
+        .coding-question .ql-editor code,
+        .coding-question pre {
+            background: #313244;
+            color: #a6e3a1;
+            border-radius: 6px;
+            padding: 2px 6px;
+            font-size: 0.85em;
+        }
+
+        .coding-question .ql-editor ul,
+        .coding-question .ql-editor ol { padding-left: 1.5rem; }
+
+        .coding-right {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #1e1e1e;
+            overflow: hidden;
+        }
+
+        .coding-toolbar {
+            background: #2d2d2d;
+            border-bottom: 1px solid #444;
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        .coding-toolbar select {
+            background: #3c3c3c;
+            color: #ddd;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 0.85rem;
+        }
+
+        #coding-editor {
+            flex: 1;
+            min-height: 0;
+        }
+
+        .coding-output {
+            background: #1e1e1e;
+            border-top: 1px solid #444;
+            flex-shrink: 0;
+            height: 160px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .coding-output-header {
+            background: #2d2d2d;
+            padding: 6px 16px;
+            font-size: 0.8rem;
+            color: #aaa;
+            border-bottom: 1px solid #444;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .coding-output pre {
+            flex: 1;
+            margin: 0;
+            padding: 10px 16px;
+            color: #d4d4d4;
+            font-size: 0.82rem;
+            overflow-y: auto;
+            background: transparent;
+            border: none;
+            white-space: pre-wrap;
+        }
+
+        .coding-output pre.text-success { color: #a6e3a1 !important; }
+        .coding-output pre.text-danger  { color: #f38ba8 !important; }
+        .coding-output pre.text-warning { color: #fab387 !important; }
+
+        .coding-actions {
+            background: #2d2d2d;
+            border-top: 1px solid #444;
+            padding: 8px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+            gap: 8px;
+        }
+
+        .coding-actions .badge-result {
+            font-size: 0.8rem;
+            padding: 4px 10px;
+        }
+
+        @media (max-width: 768px) {
+            .coding-panel { flex-direction: column; height: auto; }
+            .coding-question { width: 100%; height: 250px; }
+            .coding-right { height: 450px; }
+        }
+
+        /* Fullscreen coding: cover entire viewport */
+        body.coding-fullscreen .col-lg-9 { padding: 0 !important; }
+        body.coding-fullscreen #content-area { padding: 0 !important; height: 100vh !important; }
     </style>
 @endpush
 
 @push('scripts')
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.6/ace.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.6/mode-python.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.6/mode-javascript.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.6/mode-java.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.6/mode-c_cpp.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.6/mode-php.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.6/mode-golang.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.6/mode-ruby.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.6/theme-one_dark.min.js" crossorigin="anonymous"></script>
     <script>
         let currentContentId = null;
         let currentQuizAttemptId = null;
@@ -475,6 +631,11 @@
         }
 
         function renderQuizContent(data) {
+            if (data.quiz_type === 'coding') {
+                renderCodingChallenge(data);
+                return;
+            }
+
             if (data.pending_review) {
                 renderEssayPendingReview(data);
                 return;
@@ -1021,6 +1182,265 @@
                     window.location.href = '{{ route('user.kursus.show', $kursus->id) }}';
                 });
             }
+        }
+
+        // ── Coding challenge ───────────────────────────────────────────────────
+        let aceEditor = null;
+        let codingContentId = null;
+
+        const ACE_MODES = {
+            python: 'python', javascript: 'javascript', java: 'java',
+            cpp: 'c_cpp', php: 'php', go: 'golang', ruby: 'ruby',
+        };
+
+        function renderCodingChallenge(data) {
+            codingContentId = data.id;
+            stopIntegrityMonitoring();
+
+            // Remove padding from content-area to allow full-height panel
+            $('#content-area').css('padding', '0');
+
+            const runnerAvail = !!data.runner_available;
+            const alreadyPassed = !!data.already_passed;
+            const lang = data.coding_language || 'python';
+            const starterCode = data.starter_code || '';
+            const submittedCode = alreadyPassed ? (data.attempt?.submitted_code || starterCode) : starterCode;
+
+            // Build language selector options
+            let langOptions = '';
+            const langs = data.languages || {};
+            Object.entries(langs).forEach(([key, cfg]) => {
+                const sel = key === lang ? 'selected' : '';
+                langOptions += `<option value="${key}" data-mode="${cfg.ace_mode || key}" ${sel}>${cfg.label}</option>`;
+            });
+            if (!langOptions) langOptions = `<option value="${lang}" selected>${lang}</option>`;
+
+            // Nav buttons
+            const navBtns = `
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="restoreContentAreaPadding(); previousContent()">
+                    <i class="ti ti-arrow-left"></i> Sebelumnya
+                </button>
+                <button type="button" class="btn btn-sm btn-primary" onclick="restoreContentAreaPadding(); nextContent()">
+                    Selanjutnya <i class="ti ti-arrow-right"></i>
+                </button>`;
+
+            // Status badge if already passed
+            const statusBadge = alreadyPassed
+                ? '<span class="badge bg-success ms-auto me-2"><i class="ti ti-check me-1"></i>Lulus</span>'
+                : (!runnerAvail ? '<span class="badge bg-secondary ms-auto me-2"><i class="ti ti-player-play-filled me-1"></i>Runner belum aktif</span>' : '');
+
+            const html = `
+            <div class="coding-panel" id="coding-panel">
+                {{-- Left: Question --}}
+                <div class="coding-question">
+                    <div class="question-body">
+                        <h2><i class="ti ti-code me-2"></i>${escapeHtml(data.title || 'Tantangan Kode')}</h2>
+                        ${alreadyPassed ? '<div class="alert alert-success py-2 mb-3" style="background:#a6e3a133;border-color:#a6e3a1;color:#a6e3a1;"><i class="ti ti-circle-check me-2"></i>Kamu sudah lulus tantangan ini!</div>' : ''}
+                        <div class="content-text" style="white-space:pre-wrap;line-height:1.7;">${escapeHtml(data.content || '')}</div>
+                    </div>
+                    <div class="p-3 border-top d-flex gap-2 flex-wrap" style="border-color:#313244!important;">
+                        ${navBtns}
+                    </div>
+                </div>
+
+                {{-- Right: Editor + Output --}}
+                <div class="coding-right">
+                    <div class="coding-toolbar">
+                        <i class="ti ti-code text-primary"></i>
+                        <select id="coding-lang-select" onchange="changeCodingLanguage(this)">
+                            ${langOptions}
+                        </select>
+                        <button class="btn btn-sm btn-outline-secondary ms-auto" onclick="resetCode()" title="Reset ke kode awal">
+                            <i class="ti ti-refresh"></i>
+                        </button>
+                        ${statusBadge}
+                    </div>
+                    <div id="coding-editor"></div>
+                    <div class="coding-output" id="coding-output-panel">
+                        <div class="coding-output-header">
+                            <i class="ti ti-terminal"></i> Output
+                            <span id="coding-status-badge" class="ms-auto"></span>
+                        </div>
+                        <pre id="coding-output-text" class="text-muted">Klik "Run" untuk menjalankan kode Anda...</pre>
+                    </div>
+                    <div class="coding-actions">
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-outline-light" id="btn-run-code"
+                                onclick="runUserCode()" ${!runnerAvail ? 'disabled title="Judge0 belum dikonfigurasi"' : ''}>
+                                <i class="ti ti-player-play-filled me-1"></i>Run
+                            </button>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <small class="text-muted" id="coding-time-info"></small>
+                            ${alreadyPassed
+                                ? '<span class="text-success"><i class="ti ti-circle-check me-1"></i>Sudah dikerjakan</span>'
+                                : `<button class="btn btn-sm btn-success" id="btn-submit-code" onclick="submitUserCode()">
+                                    <i class="ti ti-send me-1"></i>Submit
+                                   </button>`
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+
+            $('#content-display').html(html);
+
+            // Initialize Ace editor
+            aceEditor = ace.edit('coding-editor');
+            aceEditor.setTheme('ace/theme/one_dark');
+            aceEditor.session.setMode('ace/mode/' + (ACE_MODES[lang] || 'text'));
+            aceEditor.setValue(submittedCode, -1);
+            aceEditor.setOptions({
+                fontSize: '13px',
+                showPrintMargin: false,
+                enableBasicAutocompletion: true,
+                enableLiveAutocompletion: true,
+                tabSize: 4,
+                useSoftTabs: true,
+            });
+
+            window._codingStarterCode = starterCode;
+            window._codingContentId   = data.id;
+        }
+
+        function changeCodingLanguage(select) {
+            if (!aceEditor) return;
+            const mode = select.options[select.selectedIndex].dataset.mode || select.value;
+            aceEditor.session.setMode('ace/mode/' + (ACE_MODES[select.value] || mode || 'text'));
+        }
+
+        function resetCode() {
+            if (aceEditor && window._codingStarterCode !== undefined) {
+                aceEditor.setValue(window._codingStarterCode, -1);
+            }
+        }
+
+        function restoreContentAreaPadding() {
+            $('#content-area').css('padding', '');
+            if (aceEditor) { aceEditor.destroy(); aceEditor = null; }
+        }
+
+        function runUserCode() {
+            if (!aceEditor) return;
+            const code     = aceEditor.getValue();
+            const language = $('#coding-lang-select').val();
+            const contentId = window._codingContentId;
+
+            $('#btn-run-code').prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Running...');
+            $('#coding-output-text').removeClass('text-success text-danger text-warning').addClass('text-muted').text('Menjalankan kode...');
+            $('#coding-status-badge').html('');
+
+            $.ajax({
+                url: '/user/daftar-kursus/{{ $kursus->id }}/code/' + contentId + '/run',
+                type: 'POST',
+                data: { _token: '{{ csrf_token() }}', code, language },
+                success: function(res) {
+                    displayCodeOutput(res);
+                },
+                error: function(xhr) {
+                    const msg = xhr.responseJSON?.error || 'Gagal menjalankan kode.';
+                    $('#coding-output-text').removeClass('text-success text-warning').addClass('text-danger').text(msg);
+                    $('#coding-status-badge').html('<span class="badge bg-danger">Error</span>');
+                },
+                complete: function() {
+                    $('#btn-run-code').prop('disabled', false).html('<i class="ti ti-player-play-filled me-1"></i>Run');
+                }
+            });
+        }
+
+        function submitUserCode() {
+            if (!aceEditor) return;
+            const code     = aceEditor.getValue();
+            const language = $('#coding-lang-select').val();
+            const contentId = window._codingContentId;
+
+            $('#btn-submit-code').prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Submit...');
+            $('#coding-output-text').removeClass('text-success text-danger text-warning').addClass('text-muted').text('Menjalankan dan menilai...');
+            $('#coding-status-badge').html('');
+
+            $.ajax({
+                url: '/user/daftar-kursus/{{ $kursus->id }}/code/' + contentId + '/submit',
+                type: 'POST',
+                data: { _token: '{{ csrf_token() }}', code, language },
+                success: function(res) {
+                    if (res.pending_review) {
+                        $('#coding-output-text').addClass('text-warning').text('Kode kamu tersimpan. Admin akan meninjau jawabanmu.');
+                        $('#coding-status-badge').html('<span class="badge bg-warning text-dark">Pending Review</span>');
+                        if (res.progress !== undefined) updateProgressBar(res.progress);
+                        return;
+                    }
+                    displayCodeOutput(res);
+                    const isPassed = res.is_passed;
+                    if (isPassed) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Selamat! Kode kamu lulus!',
+                            text: 'Output cocok dengan yang diharapkan.',
+                            timer: 3000,
+                            showConfirmButton: false,
+                        });
+                        if (res.progress !== undefined) updateProgressBar(res.progress);
+                        // Disable submit after pass
+                        $('#btn-submit-code').prop('disabled', true).html('<i class="ti ti-circle-check me-1"></i>Lulus');
+                    } else {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Belum tepat',
+                            text: 'Output tidak sesuai. Coba lagi!',
+                            timer: 2500,
+                            showConfirmButton: false,
+                        });
+                        $('#btn-submit-code').prop('disabled', false).html('<i class="ti ti-send me-1"></i>Submit');
+                    }
+                },
+                error: function(xhr) {
+                    const msg = xhr.responseJSON?.error || 'Gagal submit kode.';
+                    Swal.fire('Error', msg, 'error');
+                    $('#btn-submit-code').prop('disabled', false).html('<i class="ti ti-send me-1"></i>Submit');
+                }
+            });
+        }
+
+        function displayCodeOutput(res) {
+            const statusId   = res.status_id;
+            const stdout     = res.stdout || '';
+            const stderr     = res.stderr || '';
+            const compileOut = res.compile_output || '';
+            const time       = res.time;
+            const memory     = res.memory;
+
+            let outputText = '';
+            let colorClass = 'text-muted';
+            let statusHtml = '';
+
+            if (statusId === 3) {
+                // Accepted
+                outputText = stdout || '(no output)';
+                colorClass = res.is_passed === false ? 'text-warning' : 'text-success';
+                statusHtml = res.is_passed === false
+                    ? '<span class="badge bg-warning text-dark">Output tidak cocok</span>'
+                    : '<span class="badge bg-success">Accepted</span>';
+                if (res.expected_output && res.is_passed === false) {
+                    outputText += '\n\n─── Expected ───\n' + res.expected_output;
+                }
+            } else if (statusId === 6) {
+                outputText = compileOut || 'Compilation Error';
+                colorClass = 'text-danger';
+                statusHtml = '<span class="badge bg-danger">Compilation Error</span>';
+            } else if (statusId === 5) {
+                outputText = 'Time Limit Exceeded';
+                colorClass = 'text-warning';
+                statusHtml = '<span class="badge bg-warning text-dark">TLE</span>';
+            } else {
+                outputText = stderr || compileOut || res.status_description || 'Runtime Error';
+                colorClass = 'text-danger';
+                statusHtml = `<span class="badge bg-danger">${escapeHtml(res.status_description || 'Error')}</span>`;
+            }
+
+            $('#coding-output-text').removeClass('text-success text-danger text-warning text-muted')
+                .addClass(colorClass).text(outputText);
+            $('#coding-status-badge').html(statusHtml);
+            if (time) $('#coding-time-info').text(`${time}s / ${memory ? Math.round(memory/1000)+'KB' : '-'}`);
         }
 
         function renderEssayPendingReview(data) {

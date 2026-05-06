@@ -12,6 +12,7 @@ use App\Models\UserQuizAnswer;
 use App\Models\UserQuizAttempt;
 use App\Models\UserQuizIntegrityEvent;
 use App\Services\GeminiService;
+use App\Services\Judge0Service;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -275,6 +276,55 @@ class ListKursusController extends Controller
                 'already_passed'  => false,
                 'integrity_settings' => $integritySettings,
                 'questions'       => $this->formatAiQuestionsForFrontend($generatedQuestions),
+            ]);
+        }
+
+        // ── Coding challenge ───────────────────────────────────────────────
+        if ($content->quiz_type === 'coding') {
+            $languages = config('judge0.languages', []);
+
+            $passedAttempt = UserQuizAttempt::where('user_id', Auth::id())
+                ->where('content_id', $contentId)
+                ->where('user_course_id', $userCourse->id)
+                ->where('is_passed', true)
+                ->latest()
+                ->first();
+
+            if ($passedAttempt) {
+                return response()->json([
+                    'id'              => $content->id,
+                    'title'           => $content->title,
+                    'type'            => 'quiz',
+                    'quiz_type'       => 'coding',
+                    'already_passed'  => true,
+                    'integrity_settings' => $integritySettings,
+                    'coding_language' => $content->coding_language ?? 'python',
+                    'starter_code'    => $content->starter_code ?? '',
+                    'expected_output' => $content->expected_output,
+                    'languages'       => $languages,
+                    'attempt'         => [
+                        'score'           => $passedAttempt->score,
+                        'completed_at'    => $passedAttempt->completed_at?->format('d M Y H:i'),
+                        'submitted_code'  => $passedAttempt->submitted_code,
+                        'actual_output'   => $passedAttempt->actual_output,
+                        'coding_language' => $passedAttempt->coding_language,
+                    ],
+                ]);
+            }
+
+            return response()->json([
+                'id'              => $content->id,
+                'title'           => $content->title,
+                'type'            => 'quiz',
+                'quiz_type'       => 'coding',
+                'already_passed'  => false,
+                'integrity_settings' => $integritySettings,
+                'content'         => $content->content,
+                'coding_language' => $content->coding_language ?? 'python',
+                'starter_code'    => $content->starter_code ?? '',
+                'expected_output' => $content->expected_output,
+                'languages'       => $languages,
+                'runner_available' => app(Judge0Service::class)->isConfigured(),
             ]);
         }
 
@@ -1033,6 +1083,135 @@ class ListKursusController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['error' => 'Failed to submit quiz'], 500);
+        }
+    }
+
+    public function runCode($kursusId, $contentId, Request $request)
+    {
+        $user       = Auth::user();
+        $userCourse = $user->getEnrolledCourse($kursusId);
+        if (!$userCourse) return response()->json(['error' => 'Access denied'], 403);
+
+        $content = Content::findOrFail($contentId);
+        if ($content->quiz_type !== 'coding') return response()->json(['error' => 'Not a coding challenge'], 400);
+
+        $request->validate([
+            'code'     => 'required|string',
+            'language' => 'required|string',
+        ]);
+
+        try {
+            $result = app(Judge0Service::class)->runCode(
+                $request->input('code'),
+                $request->input('language')
+            );
+        } catch (\RuntimeException $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+
+        return response()->json([
+            'success'            => true,
+            'status_id'          => $result['status_id'],
+            'status_description' => $result['status_description'],
+            'stdout'             => $result['stdout'],
+            'stderr'             => $result['stderr'],
+            'compile_output'     => $result['compile_output'],
+            'time'               => $result['time'],
+            'memory'             => $result['memory'],
+        ]);
+    }
+
+    public function submitCode($kursusId, $contentId, Request $request)
+    {
+        /** @var \App\Models\User $user */
+        $user       = Auth::user();
+        $userCourse = $user->getEnrolledCourse($kursusId);
+        if (!$userCourse) return response()->json(['error' => 'Access denied'], 403);
+
+        $content = Content::findOrFail($contentId);
+        if ($content->quiz_type !== 'coding') return response()->json(['error' => 'Not a coding challenge'], 400);
+
+        $request->validate([
+            'code'     => 'required|string',
+            'language' => 'required|string',
+        ]);
+
+        $code     = $request->input('code');
+        $language = $request->input('language');
+        $judge0   = app(Judge0Service::class);
+
+        DB::beginTransaction();
+        try {
+            $attempt = UserQuizAttempt::create([
+                'user_id'           => Auth::id(),
+                'content_id'        => $contentId,
+                'user_course_id'    => $userCourse->id,
+                'total_questions'   => 1,
+                'submitted_code'    => $code,
+                'coding_language'   => $language,
+                'started_at'        => now(),
+                'violation_count'   => 0,
+                'is_auto_submitted' => false,
+            ]);
+
+            if (!$judge0->isConfigured()) {
+                // No API key — store code only, mark as pending
+                $attempt->update([
+                    'grading_status' => 'pending_review',
+                    'completed_at'   => now(),
+                ]);
+                DB::commit();
+                return response()->json([
+                    'success'        => true,
+                    'pending_review' => true,
+                    'message'        => 'Kode kamu sudah tersimpan. Runner belum dikonfigurasi — admin akan meninjau jawabanmu.',
+                ]);
+            }
+
+            try {
+                $result = $judge0->runCode($code, $language);
+            } catch (\RuntimeException $e) {
+                DB::rollBack();
+                return response()->json(['error' => $e->getMessage()], 500);
+            }
+
+            $stdout    = $result['stdout'];
+            $isPassed  = ($result['status_id'] === 3) && $judge0->checkOutput($stdout, $content->expected_output);
+            $score     = $isPassed ? 100 : 0;
+
+            $attempt->update([
+                'actual_output'      => $stdout ?? ($result['stderr'] ?? $result['compile_output']),
+                'judge0_status_id'   => $result['status_id'],
+                'score'              => $score,
+                'correct_answers'    => $isPassed ? 1 : 0,
+                'is_passed'          => $isPassed,
+                'is_auto_submitted'  => false,
+                'completed_at'       => now(),
+            ]);
+
+            if ($isPassed) {
+                $this->markContentProgressComplete($contentId, $userCourse);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success'            => true,
+                'is_passed'          => $isPassed,
+                'score'              => $score,
+                'status_id'          => $result['status_id'],
+                'status_description' => $result['status_description'],
+                'stdout'             => $stdout,
+                'stderr'             => $result['stderr'],
+                'compile_output'     => $result['compile_output'],
+                'time'               => $result['time'],
+                'memory'             => $result['memory'],
+                'expected_output'    => $content->expected_output,
+                'progress'           => $userCourse->fresh()->progress_percentage,
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['error' => 'Gagal submit kode'], 500);
         }
     }
 

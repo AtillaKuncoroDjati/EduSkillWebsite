@@ -184,6 +184,8 @@ Route::middleware(['auth', 'check.access'])->group(function () {
         Route::post('{kursus}/quiz/{content}/start', [ListKursusController::class, 'startQuizAttempt'])->name('user.kursus.quiz.start');
         Route::post('{kursus}/quiz/{content}/integrity-log', [ListKursusController::class, 'logIntegrityViolation'])->name('user.kursus.quiz.integrity_log');
         Route::post('{kursus}/quiz/{content}/submit', [ListKursusController::class, 'submitQuiz'])->name('user.kursus.quiz.submit');
+        Route::post('{kursus}/code/{content}/run', [ListKursusController::class, 'runCode'])->name('user.kursus.code.run');
+        Route::post('{kursus}/code/{content}/submit', [ListKursusController::class, 'submitCode'])->name('user.kursus.code.submit');
     });
 
     Route::prefix('user/certificate')->middleware('auth')->group(function () {
