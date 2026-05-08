@@ -123,14 +123,11 @@ class ContentController extends Controller
             'title'                  => 'nullable|string|max:255',
             'content'                => 'required',
             'type'                   => 'required|in:text,quiz',
-            'quiz_type'              => 'nullable|in:multiple_choice,essay,coding',
+            'quiz_type'              => 'nullable|in:multiple_choice,essay',
             'integrity_mode_enabled' => 'nullable|boolean',
             'require_fullscreen'     => 'nullable|boolean',
             'max_violations'         => 'nullable|integer|min:1|max:20',
             'ai_question_count'      => 'nullable|integer|min:1|max:20',
-            'coding_language'        => 'nullable|string',
-            'starter_code'           => 'nullable|string',
-            'expected_output'        => 'nullable|string',
         ]);
 
         if ($type === 'quiz' && !$isAiGenerated && $quizType === 'multiple_choice') {
@@ -157,8 +154,6 @@ class ContentController extends Controller
 
         $order = Content::where('module_id', $module->id)->max('order') + 1;
 
-        $isCoding = ($type === 'quiz' && $quizType === 'coding');
-
         $content = Content::create([
             'module_id'              => $module->id,
             'title'                  => $request->input('title'),
@@ -166,9 +161,6 @@ class ContentController extends Controller
             'content'                => $request->input('content'),
             'quiz_type'              => $type === 'quiz' ? $quizType : 'multiple_choice',
             'grading_type'           => ($type === 'quiz' && $quizType === 'essay') ? $request->input('grading_type', 'ai') : 'ai',
-            'coding_language'        => $isCoding ? $request->input('coding_language', 'python') : 'python',
-            'starter_code'           => $isCoding ? $request->input('starter_code') : null,
-            'expected_output'        => $isCoding ? $request->input('expected_output') : null,
             'integrity_mode_enabled' => $type === 'quiz' ? (bool) $request->integrity_mode_enabled : false,
             'require_fullscreen'     => $type === 'quiz' ? (bool) $request->require_fullscreen : false,
             'max_violations'         => $type === 'quiz' ? (int) ($request->max_violations ?? 3) : 3,
@@ -177,7 +169,7 @@ class ContentController extends Controller
             'order'                  => $order,
         ]);
 
-        if ($type === 'quiz' && !$isAiGenerated && !$isCoding) {
+        if ($type === 'quiz' && !$isAiGenerated) {
             foreach ($request->input('questions', []) as $qIndex => $question) {
                 $q = QuizQuestion::create([
                     'content_id' => $content->id,
@@ -212,14 +204,11 @@ class ContentController extends Controller
             'title'                  => 'nullable|string|max:255',
             'content'                => 'required',
             'type'                   => 'required|in:text,quiz',
-            'quiz_type'              => 'nullable|in:multiple_choice,essay,coding',
+            'quiz_type'              => 'nullable|in:multiple_choice,essay',
             'integrity_mode_enabled' => 'nullable|boolean',
             'require_fullscreen'     => 'nullable|boolean',
             'max_violations'         => 'nullable|integer|min:1|max:20',
             'ai_question_count'      => 'nullable|integer|min:1|max:20',
-            'coding_language'        => 'nullable|string',
-            'starter_code'           => 'nullable|string',
-            'expected_output'        => 'nullable|string',
         ]);
 
         if ($type === 'quiz' && !$isAiGenerated && $quizType === 'multiple_choice') {
@@ -248,17 +237,12 @@ class ContentController extends Controller
         $oldContent = $content->content;
         $oldType    = $content->type;
 
-        $isCoding = ($type === 'quiz' && $quizType === 'coding');
-
         $content->update([
             'title'                  => $request->input('title'),
             'type'                   => $type,
             'content'                => $request->input('content'),
             'quiz_type'              => $type === 'quiz' ? $quizType : 'multiple_choice',
             'grading_type'           => ($type === 'quiz' && $quizType === 'essay') ? $request->input('grading_type', 'ai') : 'ai',
-            'coding_language'        => $isCoding ? $request->input('coding_language', 'python') : 'python',
-            'starter_code'           => $isCoding ? $request->input('starter_code') : null,
-            'expected_output'        => $isCoding ? $request->input('expected_output') : null,
             'integrity_mode_enabled' => $type === 'quiz' ? (bool) $request->integrity_mode_enabled : false,
             'require_fullscreen'     => $type === 'quiz' ? (bool) $request->require_fullscreen : false,
             'max_violations'         => $type === 'quiz' ? (int) ($request->max_violations ?? 3) : 3,

@@ -26,10 +26,6 @@ class UserQuizAttempt extends Model
         'essay_answers',
         'grading_status',
         'admin_notes',
-        'submitted_code',
-        'coding_language',
-        'actual_output',
-        'judge0_status_id',
         'started_at',
         'completed_at',
     ];

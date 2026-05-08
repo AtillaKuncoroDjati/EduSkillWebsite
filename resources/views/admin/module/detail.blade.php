@@ -172,10 +172,6 @@
                                         <input class="form-check-input" type="radio" name="quiz_type" id="create-qt-essay" value="essay">
                                         <label class="form-check-label" for="create-qt-essay"><i class="ti ti-writing me-1"></i>Esai</label>
                                     </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="quiz_type" id="create-qt-coding" value="coding">
-                                        <label class="form-check-label" for="create-qt-coding"><i class="ti ti-code me-1"></i>Tantangan Kode</label>
-                                    </div>
                                 </div>
                             </div>
 
@@ -190,36 +186,6 @@
                                     <div class="form-check">
                                         <input class="form-check-input" type="radio" name="grading_type" id="create-gt-manual" value="manual">
                                         <label class="form-check-label" for="create-gt-manual"><i class="ti ti-user-check me-1"></i>Dinilai oleh Admin (manual)</label>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {{-- Coding Challenge Settings --}}
-                            <div class="card border mb-3 d-none" id="create-coding-wrapper" style="border-color:#0d6efd!important;">
-                                <div class="card-body">
-                                    <h6 class="mb-3"><i class="ti ti-code me-1"></i>Pengaturan Tantangan Kode</h6>
-                                    <div class="mb-3">
-                                        <label class="form-label fw-bold">Deskripsi Soal <span class="text-danger">*</span></label>
-                                        <small class="text-muted d-block mb-1">Teks ini tampil di panel kiri saat siswa mengerjakan tantangan.</small>
-                                        <textarea id="create-coding-description" class="form-control" rows="8"
-                                            placeholder="Tuliskan soal di sini...&#10;&#10;Contoh:&#10;## Tugas&#10;Buat sebuah fungsi yang menerima bilangan bulat n dan mengembalikan...&#10;&#10;## Contoh Input&#10;5&#10;&#10;## Contoh Output&#10;25"></textarea>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Bahasa Pemrograman</label>
-                                        <select name="coding_language" id="create-coding-language" class="form-control">
-                                            @foreach(config('judge0.languages') as $key => $lang)
-                                                <option value="{{ $key }}" {{ $key === 'python' ? 'selected' : '' }}>{{ $lang['label'] }}</option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Kode Awal (Starter Code)</label>
-                                        <textarea name="starter_code" id="create-starter-code" class="form-control font-monospace" rows="6" placeholder="# Tulis kode awal di sini...&#10;# Siswa akan melihat kode ini saat mengerjakan"></textarea>
-                                    </div>
-                                    <div class="mb-0">
-                                        <label class="form-label">Expected Output <small class="text-muted">(opsional — untuk penilaian otomatis)</small></label>
-                                        <textarea name="expected_output" id="create-expected-output" class="form-control font-monospace" rows="3" placeholder="Contoh output yang diharapkan dari program..."></textarea>
-                                        <small class="text-muted">Jika diisi, output program siswa akan dibandingkan secara otomatis (trim whitespace).</small>
                                     </div>
                                 </div>
                             </div>
@@ -338,10 +304,6 @@
                                         <input class="form-check-input" type="radio" name="quiz_type" id="edit-qt-essay" value="essay">
                                         <label class="form-check-label" for="edit-qt-essay"><i class="ti ti-writing me-1"></i>Esai</label>
                                     </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="quiz_type" id="edit-qt-coding" value="coding">
-                                        <label class="form-check-label" for="edit-qt-coding"><i class="ti ti-code me-1"></i>Tantangan Kode</label>
-                                    </div>
                                 </div>
                             </div>
 
@@ -356,36 +318,6 @@
                                     <div class="form-check">
                                         <input class="form-check-input" type="radio" name="grading_type" id="edit-gt-manual" value="manual">
                                         <label class="form-check-label" for="edit-gt-manual"><i class="ti ti-user-check me-1"></i>Dinilai oleh Admin (manual)</label>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {{-- Coding Challenge Settings --}}
-                            <div class="card border mb-3 d-none" id="edit-coding-wrapper" style="border-color:#0d6efd!important;">
-                                <div class="card-body">
-                                    <h6 class="mb-3"><i class="ti ti-code me-1"></i>Pengaturan Tantangan Kode</h6>
-                                    <div class="mb-3">
-                                        <label class="form-label fw-bold">Deskripsi Soal <span class="text-danger">*</span></label>
-                                        <small class="text-muted d-block mb-1">Teks ini tampil di panel kiri saat siswa mengerjakan tantangan.</small>
-                                        <textarea id="edit-coding-description" class="form-control" rows="8"
-                                            placeholder="Tuliskan soal di sini..."></textarea>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Bahasa Pemrograman</label>
-                                        <select name="coding_language" id="edit-coding-language" class="form-control">
-                                            @foreach(config('judge0.languages') as $key => $lang)
-                                                <option value="{{ $key }}" {{ $key === 'python' ? 'selected' : '' }}>{{ $lang['label'] }}</option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Kode Awal (Starter Code)</label>
-                                        <textarea name="starter_code" id="edit-starter-code" class="form-control font-monospace" rows="6" placeholder="# Tulis kode awal di sini..."></textarea>
-                                    </div>
-                                    <div class="mb-0">
-                                        <label class="form-label">Expected Output <small class="text-muted">(opsional)</small></label>
-                                        <textarea name="expected_output" id="edit-expected-output" class="form-control font-monospace" rows="3" placeholder="Output yang diharapkan..."></textarea>
-                                        <small class="text-muted">Jika diisi, output program siswa akan dibandingkan secara otomatis.</small>
                                     </div>
                                 </div>
                             </div>
@@ -749,18 +681,12 @@
         $('input[name="quiz_type"]').on('change', function() {
             if (!$(this).closest('#create-quiz-builder').length) return;
             const val = $(this).val();
-            const isEssay  = val === 'essay';
-            const isCoding = val === 'coding';
-            const isMc     = val === 'multiple_choice';
+            const isEssay = val === 'essay';
+            const isMc    = val === 'multiple_choice';
 
             $('#create-mc-wrapper').toggleClass('d-none', !isMc);
             $('#create-essay-wrapper').toggleClass('d-none', !isEssay);
             $('#create-grading-type-wrapper').toggleClass('d-none', !isEssay);
-            $('#create-coding-wrapper').toggleClass('d-none', !isCoding);
-            // Hide Quill editor and AI toggle for coding (description goes in coding card)
-            $('#create-content-label').toggleClass('d-none', isCoding);
-            $('#create-quiz-builder .card[style*="7c3aed"]').toggleClass('d-none', isCoding);
-            $('#create-manual-quiz-wrapper').toggleClass('d-none', isCoding);
             if (!isEssay) $('#create-gt-ai').prop('checked', true);
         });
 
@@ -1099,18 +1025,12 @@
         // Quiz-type radio toggle (edit)
         $('#edit-quiz-builder input[name="quiz_type"]').on('change', function() {
             const val = $(this).val();
-            const isEssay  = val === 'essay';
-            const isCoding = val === 'coding';
-            const isMc     = val === 'multiple_choice';
+            const isEssay = val === 'essay';
+            const isMc    = val === 'multiple_choice';
 
             $('#edit-mc-wrapper').toggleClass('d-none', !isMc);
             $('#edit-essay-wrapper').toggleClass('d-none', !isEssay);
             $('#edit-grading-type-wrapper').toggleClass('d-none', !isEssay);
-            $('#edit-coding-wrapper').toggleClass('d-none', !isCoding);
-            // Hide Quill editor for coding (description goes in coding card)
-            $('#edit-content-label').toggleClass('d-none', isCoding);
-            $('#edit-quiz-builder .card[style*="7c3aed"]').toggleClass('d-none', isCoding);
-            $('#edit-manual-quiz-wrapper').toggleClass('d-none', isCoding);
             if (!isEssay) $('#edit-gt-ai').prop('checked', true);
         });
 
