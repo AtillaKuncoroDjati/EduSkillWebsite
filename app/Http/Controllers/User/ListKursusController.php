@@ -11,7 +11,7 @@ use App\Models\UserCourse;
 use App\Models\UserQuizAnswer;
 use App\Models\UserQuizAttempt;
 use App\Models\UserQuizIntegrityEvent;
-use App\Services\GeminiService;
+use App\Services\OpenAIService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -500,19 +500,19 @@ class ListKursusController extends Controller
      */
     private function generateAiQuestions(Content $content, bool $isEssay): array
     {
-        $gemini  = app(GeminiService::class);
+        $ai      = app(OpenAIService::class);
         $count   = $content->ai_question_count ?? 5;
         $pdfPath = $this->resolvePdfPathForAi($content);
 
         if ($pdfPath) {
             return $isEssay
-                ? $gemini->generateEssayQuestionsFromPdf($pdfPath, $count)
-                : $gemini->generateQuizQuestionsFromPdf($pdfPath, $count);
+                ? $ai->generateEssayQuestionsFromPdf($pdfPath, $count)
+                : $ai->generateQuizQuestionsFromPdf($pdfPath, $count);
         }
 
         return $isEssay
-            ? $gemini->generateEssayQuestions($this->resolveAiSourceText($content), $count)
-            : $gemini->generateQuizQuestions($this->resolveAiSourceText($content), $count);
+            ? $ai->generateEssayQuestions($this->resolveAiSourceText($content), $count)
+            : $ai->generateQuizQuestions($this->resolveAiSourceText($content), $count);
     }
 
     /**
@@ -523,14 +523,14 @@ class ListKursusController extends Controller
      */
     private function gradeEssayWithAi(Content $content, array $qas): array
     {
-        $gemini  = app(GeminiService::class);
+        $ai      = app(OpenAIService::class);
         $pdfPath = $this->resolvePdfPathForAi($content);
 
         if ($pdfPath) {
-            return $gemini->gradeEssayAnswersFromPdf($pdfPath, $qas);
+            return $ai->gradeEssayAnswersFromPdf($pdfPath, $qas);
         }
 
-        return $gemini->gradeEssayAnswers($this->resolveAiSourceText($content), $qas);
+        return $ai->gradeEssayAnswers($this->resolveAiSourceText($content), $qas);
     }
 
     private function formatAiQuestionsForFrontend(array $generatedQuestions): array

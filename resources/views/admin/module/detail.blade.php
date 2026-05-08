@@ -210,7 +210,7 @@
                                         <input class="form-check-input" type="checkbox" id="create-ai-generated"
                                             name="is_ai_generated" value="1">
                                         <label class="form-check-label fw-bold" for="create-ai-generated">
-                                            <i class="ti ti-sparkles"></i> Generate Soal dengan Gemini AI
+                                            <i class="ti ti-sparkles"></i> Generate Soal dengan OpenAI
                                         </label>
                                     </div>
                                     <small class="text-muted">Jika diaktifkan, soal akan dibuat otomatis oleh AI berdasarkan konten materi. Setiap pengguna mendapat soal yang berbeda.</small>
@@ -359,7 +359,7 @@
                                         <input class="form-check-input" type="checkbox" id="edit-ai-generated"
                                             name="is_ai_generated" value="1">
                                         <label class="form-check-label fw-bold" for="edit-ai-generated">
-                                            <i class="ti ti-sparkles"></i> Generate Soal dengan Gemini AI
+                                            <i class="ti ti-sparkles"></i> Generate Soal dengan OpenAI
                                         </label>
                                     </div>
                                     <small class="text-muted">Jika diaktifkan, soal akan dibuat otomatis oleh AI berdasarkan konten materi. Setiap pengguna mendapat soal yang berbeda.</small>
@@ -686,6 +686,10 @@
             $('#create-gt-ai').prop('checked', true);
             $('#create-grading-type-wrapper').addClass('d-none');
             $('#create-pdf-file').val('');
+            // Reset AI toggle — pastikan form manual tampil saat modal dibuka
+            $('#create-ai-generated').prop('checked', false);
+            $('#create-ai-count-wrapper').addClass('d-none');
+            $('#create-manual-quiz-wrapper').removeClass('d-none');
             createQuill.setText('');
         });
 

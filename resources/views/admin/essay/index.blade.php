@@ -32,7 +32,9 @@
                 </div>
 
                 <div class="table-responsive">
-                    <table id="essay-table" class="table table-bordered table-striped mb-0">
+                    <table id="essay-table" class="table table-bordered table-striped mb-0"
+                        data-list-url="{{ route('admin.essay.list') }}"
+                        data-base-url="{{ url('admin/essay') }}">
                         <thead class="table-light">
                             <tr>
                                 <th>#</th>
@@ -54,21 +56,46 @@
 @endsection
 
 @push('styles')
-    <link rel="stylesheet" href="https://cdn.datatables.net/2.3.1/css/dataTables.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/2.3.1/css/dataTables.bootstrap5.min.css">
+    <style>
+        #essay-table_wrapper .dt-layout-row:first-child {
+            margin-bottom: 0.75rem;
+        }
+        #essay-table_wrapper .dt-layout-row:last-child {
+            margin-top: 0.75rem;
+        }
+        div.dt-length label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 0;
+            white-space: nowrap;
+        }
+        div.dt-length select {
+            width: auto;
+            display: inline-block;
+        }
+    </style>
 @endpush
 
 @push('scripts')
     <script src="https://cdn.datatables.net/2.3.1/js/dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/2.3.1/js/dataTables.bootstrap5.min.js"></script>
     <script>
         let essayTable;
         let currentStatus = 'all';
 
         $(document).ready(function() {
-            essayTable = $('#essay-table').DataTable({
+            const $table = $('#essay-table');
+            const listUrl = $table.data('list-url');
+            const baseUrl = $table.data('base-url');
+
+            essayTable = $table.DataTable({
                 processing: true,
                 serverSide: true,
+                searching: false,
                 ajax: {
-                    url: '{{ route('admin.essay.list') }}',
+                    url: listUrl,
                     type: 'POST',
                     data: function(d) {
                         d._token = '{{ csrf_token() }}';
@@ -96,11 +123,23 @@
                     { data: 'submitted_at', defaultContent: '-' },
                     {
                         data: 'id',
-                        render: (d) => `<a href="{{ url('admin/essay') }}/${d}/show" class="btn btn-sm btn-soft-primary"><i class="ti ti-pencil me-1"></i>Nilai</a>`
+                        render: (d) => `<a href="${baseUrl}/${d}/show" class="btn btn-sm btn-soft-primary"><i class="ti ti-pencil me-1"></i>Nilai</a>`
                     },
                 ],
                 pageLength: 20,
-                language: { processing: 'Memuat data...' },
+                lengthMenu: [[10, 20, 50, 100], [10, 20, 50, 100]],
+                language: {
+                    processing: 'Memuat data...',
+                    lengthMenu: 'Tampilkan _MENU_ data',
+                    info: 'Menampilkan _START_ - _END_ dari _TOTAL_ data',
+                    infoEmpty: 'Tidak ada data',
+                    paginate: {
+                        first: '«',
+                        last: '»',
+                        next: '›',
+                        previous: '‹',
+                    },
+                },
             });
 
             $('.btn-search').on('click', () => essayTable.ajax.reload());
