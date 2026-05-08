@@ -40,19 +40,45 @@ class ContentController extends Controller
             $filename = Str::uuid()->toString() . '.' . $file->getClientOriginalExtension();
             $file->move($path, $filename);
 
-            $url = asset('uploads/materi/' . $folder . '/' . $filename);
-
             return response()->json([
                 'success' => true,
-                'url' => $url
+                'url'     => asset('uploads/materi/' . $folder . '/' . $filename),
             ]);
         }
 
-        return response()->json([
-            'success' => false,
-            'message' => 'Failed to upload image'
-        ], 400);
+        return response()->json(['success' => false, 'message' => 'Failed to upload image'], 400);
     }
+
+    // ── PDF helpers ────────────────────────────────────────────────────────────
+
+    private function storePdf(Request $request): ?string
+    {
+        if (!$request->hasFile('pdf_file')) {
+            return null;
+        }
+
+        $dir = public_path('uploads/content-pdfs');
+        if (!File::exists($dir)) {
+            File::makeDirectory($dir, 0755, true);
+        }
+
+        $file     = $request->file('pdf_file');
+        $filename = Str::uuid()->toString() . '.pdf';
+        $file->move($dir, $filename);
+
+        return 'uploads/content-pdfs/' . $filename;
+    }
+
+    private function deletePdf(?string $pdfPath): void
+    {
+        if (!$pdfPath) return;
+        $full = public_path($pdfPath);
+        if (File::exists($full)) {
+            File::delete($full);
+        }
+    }
+
+    // ── Image helpers ──────────────────────────────────────────────────────────
 
     private function extractImagePaths($content)
     {
@@ -76,12 +102,10 @@ class ContentController extends Controller
     {
         $oldImages = $this->extractImagePaths($oldContent);
         $newImages = $this->extractImagePaths($newContent);
-        $imagesToDelete = array_diff($oldImages, $newImages);
 
-        foreach ($imagesToDelete as $imagePath) {
+        foreach (array_diff($oldImages, $newImages) as $imagePath) {
             if (File::exists($imagePath)) {
                 File::delete($imagePath);
-                \Log::info('Deleted image: ' . $imagePath);
                 $this->deleteEmptyDirectory(dirname($imagePath));
             }
         }
@@ -92,7 +116,6 @@ class ContentController extends Controller
         foreach ($this->extractImagePaths($content) as $imagePath) {
             if (File::exists($imagePath)) {
                 File::delete($imagePath);
-                \Log::info('Deleted all images: ' . $imagePath);
                 $this->deleteEmptyDirectory(dirname($imagePath));
             }
         }
@@ -105,13 +128,14 @@ class ContentController extends Controller
         while ($directory != $baseDir && File::isDirectory($directory)) {
             if (empty(File::files($directory)) && empty(File::directories($directory))) {
                 File::deleteDirectory($directory);
-                \Log::info('Deleted empty directory: ' . $directory);
                 $directory = dirname($directory);
             } else {
                 break;
             }
         }
     }
+
+    // ── Store ──────────────────────────────────────────────────────────────────
 
     public function store(Request $request, Module $module)
     {
@@ -121,14 +145,20 @@ class ContentController extends Controller
 
         $request->validate([
             'title'                  => 'nullable|string|max:255',
-            'content'                => 'required',
+            'content'                => 'nullable|string',
             'type'                   => 'required|in:text,quiz',
             'quiz_type'              => 'nullable|in:multiple_choice,essay',
             'integrity_mode_enabled' => 'nullable|boolean',
             'require_fullscreen'     => 'nullable|boolean',
             'max_violations'         => 'nullable|integer|min:1|max:20',
             'ai_question_count'      => 'nullable|integer|min:1|max:20',
+            'pdf_file'               => 'nullable|file|mimes:pdf|max:20480',
         ]);
+
+        // For quiz type, content is the description used by AI — still required
+        if ($type === 'quiz') {
+            $request->validate(['content' => 'required|string']);
+        }
 
         if ($type === 'quiz' && !$isAiGenerated && $quizType === 'multiple_choice') {
             $request->validate([
@@ -152,13 +182,15 @@ class ContentController extends Controller
             ]);
         }
 
-        $order = Content::where('module_id', $module->id)->max('order') + 1;
+        $pdfPath = $this->storePdf($request);
+        $order   = Content::where('module_id', $module->id)->max('order') + 1;
 
         $content = Content::create([
             'module_id'              => $module->id,
             'title'                  => $request->input('title'),
             'type'                   => $type,
             'content'                => $request->input('content'),
+            'pdf_path'               => $pdfPath,
             'quiz_type'              => $type === 'quiz' ? $quizType : 'multiple_choice',
             'grading_type'           => ($type === 'quiz' && $quizType === 'essay') ? $request->input('grading_type', 'ai') : 'ai',
             'integrity_mode_enabled' => $type === 'quiz' ? (bool) $request->integrity_mode_enabled : false,
@@ -193,6 +225,8 @@ class ContentController extends Controller
         return back();
     }
 
+    // ── Update ─────────────────────────────────────────────────────────────────
+
     public function update(Request $request)
     {
         $type          = $request->input('type');
@@ -202,14 +236,19 @@ class ContentController extends Controller
         $request->validate([
             'id'                     => 'required|exists:contents,id',
             'title'                  => 'nullable|string|max:255',
-            'content'                => 'required',
+            'content'                => 'nullable|string',
             'type'                   => 'required|in:text,quiz',
             'quiz_type'              => 'nullable|in:multiple_choice,essay',
             'integrity_mode_enabled' => 'nullable|boolean',
             'require_fullscreen'     => 'nullable|boolean',
             'max_violations'         => 'nullable|integer|min:1|max:20',
             'ai_question_count'      => 'nullable|integer|min:1|max:20',
+            'pdf_file'               => 'nullable|file|mimes:pdf|max:20480',
         ]);
+
+        if ($type === 'quiz') {
+            $request->validate(['content' => 'required|string']);
+        }
 
         if ($type === 'quiz' && !$isAiGenerated && $quizType === 'multiple_choice') {
             $request->validate([
@@ -237,10 +276,21 @@ class ContentController extends Controller
         $oldContent = $content->content;
         $oldType    = $content->type;
 
+        // Handle PDF: replace if new file uploaded, delete if remove flag set
+        $pdfPath = $content->pdf_path;
+        if ($request->hasFile('pdf_file')) {
+            $this->deletePdf($content->pdf_path);
+            $pdfPath = $this->storePdf($request);
+        } elseif ($request->boolean('remove_pdf')) {
+            $this->deletePdf($content->pdf_path);
+            $pdfPath = null;
+        }
+
         $content->update([
             'title'                  => $request->input('title'),
             'type'                   => $type,
             'content'                => $request->input('content'),
+            'pdf_path'               => $pdfPath,
             'quiz_type'              => $type === 'quiz' ? $quizType : 'multiple_choice',
             'grading_type'           => ($type === 'quiz' && $quizType === 'essay') ? $request->input('grading_type', 'ai') : 'ai',
             'integrity_mode_enabled' => $type === 'quiz' ? (bool) $request->integrity_mode_enabled : false,
@@ -251,7 +301,7 @@ class ContentController extends Controller
         ]);
 
         if ($oldContent) {
-            $this->deleteUnusedImages($oldContent, $request->input('content'));
+            $this->deleteUnusedImages($oldContent, $request->input('content') ?? '');
         }
 
         if ($type === 'text') {
@@ -270,8 +320,8 @@ class ContentController extends Controller
             $q->delete();
         }
 
-        if ($isAiGenerated || $isCoding) {
-            session()->flash('success_message', $isCoding ? 'Tantangan Kode telah diperbarui.' : 'Materi & Kuis AI telah diperbarui.');
+        if ($isAiGenerated) {
+            session()->flash('success_message', 'Materi & Kuis AI telah diperbarui.');
             return back();
         }
 
@@ -314,6 +364,8 @@ class ContentController extends Controller
             if ($content->content) {
                 $this->deleteAllImagesFromContent($content->content);
             }
+
+            $this->deletePdf($content->pdf_path);
 
             if ($content->type === 'quiz') {
                 foreach ($content->questions as $q) {

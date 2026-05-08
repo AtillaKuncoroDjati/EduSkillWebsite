@@ -174,6 +174,7 @@ class ListKursusController extends Controller
                 'title'   => $content->title,
                 'type'    => $content->type,
                 'content' => nl2br($content->content),
+                'pdf_url' => $content->pdf_path ? asset($content->pdf_path) : null,
             ]);
         }
 
@@ -227,16 +228,8 @@ class ListKursusController extends Controller
                 $generatedQuestions = $pendingAttempt->generated_questions;
             } else {
                 try {
-                    $isEssay = $content->quiz_type === 'essay';
-                    $generatedQuestions = $isEssay
-                        ? app(GeminiService::class)->generateEssayQuestions(
-                            $this->resolveAiSourceText($content),
-                            $content->ai_question_count ?? 5
-                        )
-                        : app(GeminiService::class)->generateQuizQuestions(
-                            $this->resolveAiSourceText($content),
-                            $content->ai_question_count ?? 5
-                        );
+                    $isEssay            = $content->quiz_type === 'essay';
+                    $generatedQuestions = $this->generateAiQuestions($content, $isEssay);
                 } catch (\RuntimeException $e) {
                     return response()->json(['error' => $e->getMessage()], 500);
                 }
@@ -466,6 +459,24 @@ class ListKursusController extends Controller
     }
 
     /**
+     * Return the absolute filesystem path to a PDF from this quiz's module (if any).
+     */
+    private function resolvePdfPathForAi(Content $content): ?string
+    {
+        $content->loadMissing('module.contents');
+
+        $pdfContent = $content->module->contents
+            ->where('type', 'text')
+            ->whereNotNull('pdf_path')
+            ->first();
+
+        if (!$pdfContent) return null;
+
+        $path = public_path($pdfContent->pdf_path);
+        return file_exists($path) ? $path : null;
+    }
+
+    /**
      * Build the source text for AI question generation.
      * Uses all text-type contents in the same module; falls back to the quiz's own content field.
      */
@@ -475,11 +486,51 @@ class ListKursusController extends Controller
 
         $moduleText = $content->module->contents
             ->where('type', 'text')
-            ->map(fn($c) => trim(strip_tags($c->content)))
+            ->map(fn($c) => trim(strip_tags($c->content ?? '')))
             ->filter(fn($t) => strlen($t) > 0)
             ->implode("\n\n");
 
-        return strlen(trim($moduleText)) >= 30 ? $moduleText : $content->content;
+        return strlen(trim($moduleText)) >= 30 ? $moduleText : ($content->content ?? '');
+    }
+
+    /**
+     * Generate AI questions — uses PDF from module if available, otherwise plain text.
+     *
+     * @return array<int, mixed>
+     */
+    private function generateAiQuestions(Content $content, bool $isEssay): array
+    {
+        $gemini  = app(GeminiService::class);
+        $count   = $content->ai_question_count ?? 5;
+        $pdfPath = $this->resolvePdfPathForAi($content);
+
+        if ($pdfPath) {
+            return $isEssay
+                ? $gemini->generateEssayQuestionsFromPdf($pdfPath, $count)
+                : $gemini->generateQuizQuestionsFromPdf($pdfPath, $count);
+        }
+
+        return $isEssay
+            ? $gemini->generateEssayQuestions($this->resolveAiSourceText($content), $count)
+            : $gemini->generateQuizQuestions($this->resolveAiSourceText($content), $count);
+    }
+
+    /**
+     * Grade essay answers — uses PDF from module as reference if available.
+     *
+     * @param  array<int, array{question: string, answer: string}> $qas
+     * @return array<int, array{score: int, feedback: string}>
+     */
+    private function gradeEssayWithAi(Content $content, array $qas): array
+    {
+        $gemini  = app(GeminiService::class);
+        $pdfPath = $this->resolvePdfPathForAi($content);
+
+        if ($pdfPath) {
+            return $gemini->gradeEssayAnswersFromPdf($pdfPath, $qas);
+        }
+
+        return $gemini->gradeEssayAnswers($this->resolveAiSourceText($content), $qas);
     }
 
     private function formatAiQuestionsForFrontend(array $generatedQuestions): array
@@ -560,10 +611,7 @@ class ListKursusController extends Controller
             if (!$attempt) {
                 // Edge case: getContent() wasn't called first — generate now
                 try {
-                    $generatedQuestions = app(GeminiService::class)->generateQuizQuestions(
-                        $this->resolveAiSourceText($content),
-                        $content->ai_question_count ?? 5
-                    );
+                    $generatedQuestions = $this->generateAiQuestions($content, false);
                 } catch (\RuntimeException $e) {
                     return response()->json(['error' => $e->getMessage()], 500);
                 }
@@ -854,10 +902,7 @@ class ListKursusController extends Controller
 
                 // ── AI grading ─────────────────────────────────────────────
                 try {
-                    $grades = app(GeminiService::class)->gradeEssayAnswers(
-                        $this->resolveAiSourceText($content),
-                        $qas
-                    );
+                    $grades = $this->gradeEssayWithAi($content, $qas);
                 } catch (\RuntimeException $e) {
                     DB::rollBack();
                     return response()->json(['error' => $e->getMessage()], 500);

@@ -30,6 +30,7 @@ class Content extends Model
         'ai_question_count',
         'quiz_type',
         'grading_type',
+        'pdf_path',
         'order',
     ];
 

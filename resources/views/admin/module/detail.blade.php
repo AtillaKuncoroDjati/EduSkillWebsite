@@ -42,6 +42,11 @@
                                             <span class="badge bg-info me-2">
                                                 <i class="ti ti-file-text"></i> Teks
                                             </span>
+                                            @if ($materi->pdf_path)
+                                                <span class="badge bg-danger me-2">
+                                                    <i class="ti ti-file-type-pdf"></i> PDF
+                                                </span>
+                                            @endif
                                         @else
                                             <span class="badge bg-warning me-2">
                                                 <i class="ti ti-clipboard-list"></i> Kuis
@@ -96,7 +101,8 @@
                                     <div class="d-flex flex-column gap-2">
                                         <button class="btn btn-sm btn-soft-primary btn-edit-material w-100"
                                             data-id="{{ $materi->id }}" data-title="{{ $materi->title }}"
-                                            data-type="{{ $materi->type }}">
+                                            data-type="{{ $materi->type }}"
+                                            data-pdf="{{ $materi->pdf_path }}">
                                             <i class="ti ti-pencil me-1"></i> Edit
                                         </button>
 
@@ -131,7 +137,7 @@
     <div id="create-material-modal" class="modal fade" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <form method="POST" action="{{ route('admin.content.store', $module->id) }}" id="form-create-material">
+                <form method="POST" action="{{ route('admin.content.store', $module->id) }}" id="form-create-material" enctype="multipart/form-data">
                     @csrf
                     <input type="hidden" name="content" id="create-content-hidden">
 
@@ -154,9 +160,16 @@
                             </select>
                         </div>
 
+                        {{-- PDF Upload (text type only) --}}
+                        <div class="mb-3" id="create-pdf-wrapper">
+                            <label class="form-label fw-bold"><i class="ti ti-file-type-pdf me-1 text-danger"></i>Upload Materi PDF <span class="text-danger">*</span></label>
+                            <input type="file" name="pdf_file" id="create-pdf-file" class="form-control" accept=".pdf">
+                            <small class="text-muted">Maks. 20 MB. PDF ini akan ditampilkan langsung di halaman belajar siswa.</small>
+                        </div>
+
                         <div class="mb-3" id="create-content-label">
-                            <label class="form-label" id="create-content-label-text">Konten</label>
-                            <div id="create-content-editor" style="height: 150px;"></div>
+                            <label class="form-label" id="create-content-label-text">Deskripsi <small class="text-muted fw-normal">(opsional)</small></label>
+                            <div id="create-content-editor" style="height: 120px;"></div>
                         </div>
 
                         <div id="create-quiz-builder" class="d-none">
@@ -262,7 +275,7 @@
     <div id="edit-material-modal" class="modal fade" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <form method="POST" action="{{ route('admin.content.update') }}" id="form-edit-material">
+                <form method="POST" action="{{ route('admin.content.update') }}" id="form-edit-material" enctype="multipart/form-data">
                     @csrf
                     <input type="hidden" name="id" id="edit-id">
                     <input type="hidden" name="content" id="edit-content-hidden">
@@ -286,9 +299,26 @@
                             </select>
                         </div>
 
+                        {{-- PDF section (text type only) --}}
+                        <div class="mb-3" id="edit-pdf-wrapper">
+                            <label class="form-label fw-bold"><i class="ti ti-file-type-pdf me-1 text-danger"></i>Materi PDF</label>
+                            <div id="edit-current-pdf" class="mb-2 d-none">
+                                <div class="d-flex align-items-center gap-2 p-2 border rounded bg-light">
+                                    <i class="ti ti-file-type-pdf text-danger fs-4"></i>
+                                    <span id="edit-pdf-filename" class="text-truncate flex-grow-1 small"></span>
+                                    <div class="form-check mb-0">
+                                        <input class="form-check-input" type="checkbox" name="remove_pdf" id="edit-remove-pdf" value="1">
+                                        <label class="form-check-label small text-danger" for="edit-remove-pdf">Hapus PDF</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <input type="file" name="pdf_file" id="edit-pdf-file" class="form-control" accept=".pdf">
+                            <small class="text-muted">Upload PDF baru untuk mengganti yang lama. Maks. 20 MB.</small>
+                        </div>
+
                         <div class="mb-3" id="edit-content-label">
-                            <label class="form-label" id="edit-content-label-text">Konten</label>
-                            <div id="edit-content-editor" style="height: 300px;"></div>
+                            <label class="form-label" id="edit-content-label-text">Deskripsi <small class="text-muted fw-normal">(opsional)</small></label>
+                            <div id="edit-content-editor" style="height: 200px;"></div>
                         </div>
 
                         <div id="edit-quiz-builder" class="d-none">
@@ -655,10 +685,7 @@
             $('#create-qt-mc').prop('checked', true).trigger('change');
             $('#create-gt-ai').prop('checked', true);
             $('#create-grading-type-wrapper').addClass('d-none');
-            $('#create-coding-wrapper').addClass('d-none');
-            $('#create-content-label').removeClass('d-none');
-            $('#create-coding-description').val('');
-            $('#create-quiz-builder .card[style*="7c3aed"]').removeClass('d-none');
+            $('#create-pdf-file').val('');
             createQuill.setText('');
         });
 
@@ -666,13 +693,15 @@
             const type = $(this).val();
             if (type === 'quiz') {
                 $('#create-quiz-builder').removeClass('d-none');
+                $('#create-pdf-wrapper').addClass('d-none');
+                $('#create-content-label').removeClass('d-none');
                 $('#create-content-label-text').text('Deskripsi / Petunjuk Kuis');
-                const currentQT = $('input[name="quiz_type"]:checked').val();
-                $('#create-content-label').toggleClass('d-none', currentQT === 'coding');
+                $('#create-pdf-file').val('');
             } else {
                 $('#create-quiz-builder').addClass('d-none');
-                $('#create-content-label-text').text('Konten');
+                $('#create-pdf-wrapper').removeClass('d-none');
                 $('#create-content-label').removeClass('d-none');
+                $('#create-content-label-text').html('Deskripsi <small class="text-muted fw-normal">(opsional)</small>');
             }
             adjustEditorHeight(type, false);
         });
@@ -775,13 +804,10 @@
         $('#form-create-material').on('submit', function(e) {
             const type     = $('#create-type').val();
             const quizType = $('input[name="quiz_type"]:checked').val();
-            const isCodingSubmit = (type === 'quiz' && quizType === 'coding');
-            $('#create-content-hidden').val(isCodingSubmit
-                ? $('#create-coding-description').val()
-                : createQuill.root.innerHTML);
+            $('#create-content-hidden').val(createQuill.root.innerHTML);
             if (type === 'quiz') {
                 const isAi = $('#create-ai-generated').is(':checked');
-                if (!isAi && quizType !== 'coding') {
+                if (!isAi) {
                     if (quizType === 'essay') {
                         if ($('#create-essay-container .essay-question-block').length === 0) {
                             e.preventDefault();
@@ -803,25 +829,38 @@
 
         // Edit Modal Events
         $('.btn-edit-material').on('click', function() {
-            const id = $(this).data('id');
-            const title = $(this).data('title');
-            const type = $(this).data('type');
+            const id      = $(this).data('id');
+            const title   = $(this).data('title');
+            const type    = $(this).data('type');
+            const pdfPath = $(this).data('pdf') || '';
 
             $('#edit-id').val(id);
             $('#edit-title').val(title);
             $('#edit-type').val(type);
+            $('#edit-remove-pdf').prop('checked', false);
+            $('#edit-pdf-file').val('');
 
             // PENTING: Reset container dan index
             $('#edit-questions-container').html('');
-            editQIndex = 0; // RESET INDEX!
+            editQIndex = 0;
 
-            // Update label berdasarkan type
+            // Show/hide PDF section and update labels
             if (type === 'quiz') {
-                $('#edit-content-label-text').text('Deskripsi / Petunjuk Kuis');
+                $('#edit-pdf-wrapper').addClass('d-none');
+                $('#edit-current-pdf').addClass('d-none');
                 $('#edit-quiz-builder').removeClass('d-none');
+                $('#edit-content-label-text').text('Deskripsi / Petunjuk Kuis');
             } else {
-                $('#edit-content-label-text').text('Konten');
+                $('#edit-pdf-wrapper').removeClass('d-none');
                 $('#edit-quiz-builder').addClass('d-none');
+                $('#edit-content-label-text').html('Deskripsi <small class="text-muted fw-normal">(opsional)</small>');
+                if (pdfPath) {
+                    const filename = pdfPath.split('/').pop();
+                    $('#edit-pdf-filename').text(filename);
+                    $('#edit-current-pdf').removeClass('d-none');
+                } else {
+                    $('#edit-current-pdf').addClass('d-none');
+                }
             }
 
             // Adjust editor height
@@ -842,25 +881,13 @@
                     // Populate quiz_type
                     const quizType = res.quiz_type || 'multiple_choice';
                     $(`#edit-quiz-builder input[name="quiz_type"][value="${quizType}"]`).prop('checked', true);
-                    const isEssay  = quizType === 'essay';
-                    const isCoding = quizType === 'coding';
-                    const isMc     = quizType === 'multiple_choice';
+                    const isEssay = quizType === 'essay';
+                    const isMc    = quizType === 'multiple_choice';
                     $('#edit-mc-wrapper').toggleClass('d-none', !isMc);
                     $('#edit-essay-wrapper').toggleClass('d-none', !isEssay);
                     $('#edit-grading-type-wrapper').toggleClass('d-none', !isEssay);
-                    $('#edit-coding-wrapper').toggleClass('d-none', !isCoding);
-                    $('#edit-content-label').toggleClass('d-none', isCoding);
-                    $('#edit-quiz-builder .card[style*="7c3aed"]').toggleClass('d-none', isCoding);
-                    $('#edit-manual-quiz-wrapper').toggleClass('d-none', isCoding);
                     const gradingType = res.grading_type || 'ai';
                     $(`#edit-quiz-builder input[name="grading_type"][value="${gradingType}"]`).prop('checked', true);
-                    // Populate coding fields
-                    if (isCoding) {
-                        $('#edit-coding-description').val(res.content || '');
-                        $('#edit-coding-language').val(res.coding_language || 'python');
-                        $('#edit-starter-code').val(res.starter_code || '');
-                        $('#edit-expected-output').val(res.expected_output || '');
-                    }
                     $('#edit-essay-container').html('');
 
                     // Populate AI quiz fields
@@ -1054,14 +1081,11 @@
         $('#form-edit-material').on('submit', function(e) {
             const type     = $('#edit-type').val();
             const quizType = $('#edit-quiz-builder input[name="quiz_type"]:checked').val();
-            const isCodingSubmit = (type === 'quiz' && quizType === 'coding');
-            $('#edit-content-hidden').val(isCodingSubmit
-                ? $('#edit-coding-description').val()
-                : editQuill.root.innerHTML);
+            $('#edit-content-hidden').val(editQuill ? editQuill.root.innerHTML : '');
 
             if (type === 'quiz') {
                 const isAi = $('#edit-ai-generated').is(':checked');
-                if (!isAi && quizType !== 'coding') {
+                if (!isAi) {
                     if (quizType === 'essay') {
                         if ($('#edit-essay-container .essay-question-block').length === 0) {
                             e.preventDefault();

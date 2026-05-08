@@ -462,14 +462,36 @@
         function renderTextContent(data) {
             let html = '<div class="content-wrapper">';
             html += '<h3 class="mb-4">' + escapeHtml(data.title || 'Materi') + '</h3>';
-            html += '<div class="card"><div class="card-body"><div class="content-text">';
-            html += data.content || '<p class="text-muted">Tidak ada konten</p>';
-            html += '</div></div></div>';
+
+            if (data.pdf_url) {
+                // PDF toolbar: download button
+                html += '<div class="d-flex align-items-center justify-content-between mb-2">';
+                html += '<span class="text-muted small"><i class="ti ti-file-type-pdf text-danger me-1"></i>Dokumen PDF</span>';
+                html += '<a href="' + data.pdf_url + '" download class="btn btn-sm btn-outline-danger">';
+                html += '<i class="ti ti-download me-1"></i>Download PDF</a>';
+                html += '</div>';
+
+                // Embedded PDF viewer
+                html += '<div class="border rounded overflow-hidden mb-3" style="height:75vh;">';
+                html += '<embed src="' + data.pdf_url + '#toolbar=1&navpanes=0" type="application/pdf" width="100%" height="100%">';
+                html += '</div>';
+
+                // Deskripsi/catatan (opsional, di bawah PDF)
+                const desc = (data.content || '').replace(/<p><br><\/p>/g, '').trim();
+                if (desc && desc !== '<p></p>') {
+                    html += '<div class="card mt-3"><div class="card-body"><div class="content-text">';
+                    html += desc;
+                    html += '</div></div></div>';
+                }
+            } else {
+                html += '<div class="card"><div class="card-body"><div class="content-text">';
+                html += data.content || '<p class="text-muted">Tidak ada konten</p>';
+                html += '</div></div></div>';
+            }
+
             html += '<div class="d-flex justify-content-between mt-4">';
-            html +=
-                '<button class="btn btn-outline-secondary" onclick="previousContent()"><i class="ti ti-arrow-left"></i> Sebelumnya</button>';
-            html +=
-                '<button class="btn btn-primary" onclick="nextContent()">Selanjutnya <i class="ti ti-arrow-right"></i></button>';
+            html += '<button class="btn btn-outline-secondary" onclick="previousContent()"><i class="ti ti-arrow-left"></i> Sebelumnya</button>';
+            html += '<button class="btn btn-primary" onclick="nextContent()">Selanjutnya <i class="ti ti-arrow-right"></i></button>';
             html += '</div></div>';
 
             $('#content-display').html(html);
