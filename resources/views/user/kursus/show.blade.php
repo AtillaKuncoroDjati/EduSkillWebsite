@@ -159,6 +159,11 @@
                                             @else
                                                 <ul class="list-group list-group-flush">
                                                     @foreach ($module->contents as $content)
+                                                        @php
+                                                            $quizQuestionCount = $content->is_ai_generated
+                                                                ? (int) ($content->ai_question_count ?? 5)
+                                                                : $content->questions->count();
+                                                        @endphp
                                                         <li
                                                             class="list-group-item d-flex justify-content-between align-items-center">
                                                             <div>
@@ -176,7 +181,7 @@
                                                                         class="badge bg-soft-primary text-primary">Teks</span>
                                                                 @else
                                                                     <span class="badge bg-soft-warning text-warning">Quiz
-                                                                        ({{ $content->questions->count() }} soal)
+                                                                        ({{ $quizQuestionCount }} soal)
                                                                     </span>
                                                                 @endif
                                                             </div>
@@ -322,7 +327,7 @@
                                     </small>
                                 </div>
                             @else
-                                <a href="{{ route('login') }}" class="btn btn-primary w-100">
+                                <a href="{{ route('auth.view') }}" class="btn btn-primary w-100">
                                     <i class="ti ti-login"></i> Login untuk Mulai Belajar
                                 </a>
                             @endif

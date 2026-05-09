@@ -27,10 +27,15 @@ class CheckUserStatus
             $reasonText = $user->suspension_reason;
             auth()->logout();
 
-            $label = \App\Models\User::formatDurationLabel((int) now()->diffInSeconds($until, false));
+            $label = $until
+                ? \App\Models\User::formatDurationLabel((int) now()->diffInSeconds($until, false))
+                : 'tanpa batas waktu';
             $reason = $reasonText ? ' Alasan: ' . $reasonText . '.' : '';
-            session()->flash('failed_message', "Akun Anda sedang disuspend selama {$label} lagi.{$reason} Silakan coba lagi setelah periode suspensi berakhir.");
-            session()->flash('suspended_until_iso', $until->toIso8601String());
+            $durationText = $until ? "selama {$label} lagi" : $label;
+            session()->flash('failed_message', "Akun Anda sedang disuspend {$durationText}.{$reason} Silakan hubungi administrator untuk informasi lebih lanjut.");
+            if ($until) {
+                session()->flash('suspended_until_iso', $until->toIso8601String());
+            }
             session()->flash('suspension_reason_text', $reasonText);
             return to_route('auth.view');
         }

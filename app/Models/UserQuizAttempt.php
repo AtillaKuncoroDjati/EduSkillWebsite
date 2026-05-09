@@ -26,18 +26,28 @@ class UserQuizAttempt extends Model
         'essay_answers',
         'grading_status',
         'admin_notes',
+        'keystroke_data',
+        'keystroke_anomaly_score',
+        'keystroke_flag',
+        'submitted_code',
+        'coding_language',
+        'actual_output',
+        'judge0_status_id',
         'started_at',
         'completed_at',
     ];
 
     protected $casts = [
-        'is_passed'           => 'boolean',
-        'is_auto_submitted'   => 'boolean',
-        'generated_questions' => 'array',
-        'ai_answers'          => 'array',
-        'essay_answers'       => 'array',
-        'started_at'          => 'datetime',
-        'completed_at'        => 'datetime',
+        'is_passed'                => 'boolean',
+        'is_auto_submitted'        => 'boolean',
+        'generated_questions'      => 'array',
+        'ai_answers'               => 'array',
+        'essay_answers'            => 'array',
+        'keystroke_data'           => 'array',
+        'keystroke_anomaly_score'  => 'float',
+        'judge0_status_id'         => 'integer',
+        'started_at'               => 'datetime',
+        'completed_at'             => 'datetime',
     ];
 
     public function user()
@@ -65,4 +75,3 @@ class UserQuizAttempt extends Model
         return $this->hasMany(UserQuizIntegrityEvent::class, 'user_quiz_attempt_id');
     }
 }
-

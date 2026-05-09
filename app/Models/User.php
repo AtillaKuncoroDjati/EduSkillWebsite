@@ -144,6 +144,10 @@ class User extends Authenticatable
 
     public function suspensionRemainingLabel(): string
     {
+        if ($this->is_suspended && $this->suspended_until === null) {
+            return 'tanpa batas waktu';
+        }
+
         return self::formatDurationLabel($this->suspensionRemainingSeconds());
     }
 

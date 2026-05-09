@@ -3,8 +3,11 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\KeystrokeBaseline;
 use App\Models\UserContentProgress;
+use App\Models\UserCourse;
 use App\Models\UserQuizAttempt;
+use App\Services\KeystrokeAnalysisService;
 use Illuminate\Http\Request;
 
 class EssayGradingController extends Controller
@@ -48,8 +51,8 @@ class EssayGradingController extends Controller
                     'id'             => $attempt->id,
                     'user_name'      => $attempt->user->name ?? '-',
                     'user_email'     => $attempt->user->email ?? '-',
-                    'content_title'  => $attempt->content->title ?? '-',
-                    'kursus_title'   => $attempt->content->module->kursus->judul ?? '-',
+                    'content_title'  => $attempt->content->title ?: '-',
+                    'kursus_title'   => $attempt->content->module->kursus->title ?? '-',
                     'grading_status' => $attempt->grading_status,
                     'score'          => $attempt->score,
                     'is_passed'      => $attempt->is_passed,
@@ -74,32 +77,82 @@ class EssayGradingController extends Controller
             abort(404);
         }
 
-        $questions = $attempt->content->questions->map(fn($q) => [
-            'id'       => $q->id,
-            'question' => $q->question,
-        ])->values()->toArray();
-
         $essayAnswers = $attempt->essay_answers ?? [];
 
+        // Build pairs from essay_answers (handles both manual and AI-generated essays).
+        // Sort numerically by 'essay_X' index — string sort would put essay_10 before essay_2.
+        $keys = array_keys($essayAnswers);
+        usort($keys, fn($a, $b) => (int) substr($a, 6) <=> (int) substr($b, 6));
+
+        $contentQuestions   = $attempt->content->questions->values();
+        $generatedQuestions = $attempt->generated_questions ?? [];
+
         $pairs = [];
-        foreach ($questions as $i => $q) {
-            $key        = 'essay_' . $i;
-            $stored     = $essayAnswers[$key] ?? [];
+        foreach ($keys as $key) {
+            if (!preg_match('/^essay_(\d+)$/', $key, $m)) continue;
+            $i      = (int) $m[1];
+            $stored = $essayAnswers[$key];
+
+            $questionText = $stored['question'] ?? null;
+            if (!$questionText) {
+                if ($attempt->content->is_ai_generated) {
+                    $questionText = $generatedQuestions[$i]['question'] ?? '(Pertanyaan tidak tersedia)';
+                } else {
+                    $questionText = $contentQuestions[$i]->question ?? '(Pertanyaan tidak tersedia)';
+                }
+            }
+
             $pairs[] = [
                 'index'    => $i,
-                'question' => $q['question'],
+                'question' => $questionText,
                 'answer'   => $stored['answer'] ?? '',
                 'score'    => $stored['score'] ?? null,
                 'feedback' => $stored['feedback'] ?? '',
             ];
         }
 
-        return view('admin.essay.show', compact('attempt', 'pairs'));
+        // Fallback: if no essay_answers yet (edge case), seed pairs from source questions
+        if (empty($pairs)) {
+            $sourceQuestions = $attempt->content->is_ai_generated
+                ? array_map(fn($gq) => $gq['question'], $generatedQuestions)
+                : $contentQuestions->pluck('question')->all();
+            foreach ($sourceQuestions as $i => $qText) {
+                $pairs[] = [
+                    'index'    => $i,
+                    'question' => $qText,
+                    'answer'   => '',
+                    'score'    => null,
+                    'feedback' => '',
+                ];
+            }
+        }
+
+        // Keystroke analytics
+        $keystrokeData     = $attempt->keystroke_data ?? null;
+        $keystrokeBaseline = null;
+        $keystrokeTable    = [];
+        $deviceType        = $keystrokeData['device_type'] ?? 'desktop';
+
+        if ($keystrokeData) {
+            $keystrokeBaseline = KeystrokeBaseline::where('user_id', $attempt->user_id)
+                ->where('device_type', $deviceType)
+                ->first();
+
+            if ($keystrokeBaseline && $keystrokeBaseline->sample_sessions >= 2) {
+                $keystrokeTable = app(KeystrokeAnalysisService::class)
+                    ->buildComparisonTable($keystrokeData, $keystrokeBaseline);
+            }
+        }
+
+        return view('admin.essay.show', compact(
+            'attempt', 'pairs',
+            'keystrokeData', 'keystrokeBaseline', 'keystrokeTable'
+        ));
     }
 
     public function grade(Request $request, $id)
     {
-        $attempt = UserQuizAttempt::with('content.questions')->findOrFail($id);
+        $attempt = UserQuizAttempt::with(['content.questions', 'userCourse'])->findOrFail($id);
 
         if ($attempt->content->quiz_type !== 'essay' || $attempt->content->grading_type !== 'manual') {
             abort(404);
@@ -111,13 +164,18 @@ class EssayGradingController extends Controller
             'feedbacks' => 'nullable|array',
         ]);
 
-        $questions    = $attempt->content->questions->values();
         $essayAnswers = $attempt->essay_answers ?? [];
         $totalScore   = 0;
         $passCount    = 0;
+        $count        = 0;
 
-        foreach ($questions as $i => $q) {
-            $key   = 'essay_' . $i;
+        // Iterate by essay_answers keys to handle both manual and AI-generated essays
+        $keys = array_keys($essayAnswers);
+        usort($keys, fn($a, $b) => (int) substr($a, 6) <=> (int) substr($b, 6));
+
+        foreach ($keys as $key) {
+            if (!preg_match('/^essay_(\d+)$/', $key, $m)) continue;
+            $i     = (int) $m[1];
             $score = (int) ($request->scores[$i] ?? 0);
             $fb    = (string) ($request->feedbacks[$i] ?? '');
 
@@ -130,9 +188,10 @@ class EssayGradingController extends Controller
             if ($score >= 70) {
                 $passCount++;
             }
+            $count++;
         }
 
-        $count    = max(1, $questions->count());
+        $count    = max(1, $count);
         $avgScore = round($totalScore / $count);
         $isPassed = $avgScore >= 70;
 
@@ -149,12 +208,54 @@ class EssayGradingController extends Controller
 
         if ($isPassed) {
             UserContentProgress::updateOrCreate(
-                ['user_id' => $attempt->user_id, 'content_id' => $attempt->content_id],
-                ['is_completed' => true]
+                [
+                    'user_id' => $attempt->user_id,
+                    'content_id' => $attempt->content_id,
+                    'user_course_id' => $attempt->user_course_id,
+                ],
+                [
+                    'is_completed' => true,
+                    'completed_at' => now(),
+                ]
             );
+
+            if ($attempt->userCourse) {
+                $this->updateCourseProgress($attempt->userCourse);
+            }
         }
 
         return redirect()->route('admin.essay.index')
             ->with('success', 'Penilaian esai berhasil disimpan.');
+    }
+
+    private function updateCourseProgress(UserCourse $userCourse): void
+    {
+        $kursus = $userCourse->kursus()->with('modules.contents')->first();
+
+        if (!$kursus) {
+            return;
+        }
+
+        $totalContents = $kursus->modules->sum(fn($module) => $module->contents->count());
+        if ($totalContents === 0) {
+            return;
+        }
+
+        $completedContents = $userCourse->contentProgress()
+            ->where('is_completed', true)
+            ->count();
+
+        $percentage = round(($completedContents / $totalContents) * 100);
+
+        $userCourse->update([
+            'progress_percentage' => $percentage,
+        ]);
+
+        if ($percentage >= 100) {
+            $userCourse->update([
+                'status' => 'completed',
+                'completed_at' => now(),
+            ]);
+        }
     }
 }

@@ -38,29 +38,31 @@
                             <div class="accordion-body p-0">
                                 @foreach ($module->contents as $content)
                                     @php
-                                        $isCompleted = $contentProgress[$content->id] ?? false;
+                                        $state = $contentAccess[$content->id] ?? ['is_completed' => false, 'is_unlocked' => false];
+                                        $isCompleted = $state['is_completed'];
+                                        $isUnlocked = $state['is_unlocked'];
+                                        $contentTypeLabel = $content->type === 'text' ? 'Teks' : 'Quiz';
+                                        $statusLabel = $isCompleted ? 'Selesai' : ($isUnlocked ? 'Terbuka - ' . $contentTypeLabel : 'Terkunci');
+                                        $statusClass = $isCompleted ? 'text-success' : ($isUnlocked ? 'text-primary' : 'text-muted');
+                                        $iconClass = $isCompleted
+                                            ? 'ti ti-circle-check text-success fs-5'
+                                            : ($isUnlocked ? 'ti ti-lock-open text-primary fs-5' : 'ti ti-lock text-muted fs-5');
                                     @endphp
                                     <a href="#"
-                                        class="d-flex align-items-center text-decoration-none content-item p-3 border-bottom"
+                                        class="d-flex align-items-center text-decoration-none content-item p-3 border-bottom {{ !$isUnlocked ? 'content-locked' : '' }}"
                                         data-content-id="{{ $content->id }}" data-content-type="{{ $content->type }}"
-                                        onclick="loadContent('{{ $content->id }}', '{{ $content->type }}'); return false;">
+                                        data-content-locked="{{ $isUnlocked ? '0' : '1' }}"
+                                        data-content-completed="{{ $isCompleted ? '1' : '0' }}"
+                                        aria-disabled="{{ $isUnlocked ? 'false' : 'true' }}">
                                         <div class="flex-shrink-0 me-2">
-                                            @if ($isCompleted)
-                                                <i class="ti ti-circle-check text-success fs-5"></i>
-                                            @else
-                                                @if ($content->type === 'text')
-                                                    <i class="ti ti-file-text text-muted"></i>
-                                                @else
-                                                    <i class="ti ti-clipboard-list text-warning"></i>
-                                                @endif
-                                            @endif
+                                            <i class="content-status-icon {{ $iconClass }}"></i>
                                         </div>
                                         <div class="flex-grow-1">
-                                            <small class="d-block text-dark">
+                                            <small class="d-block {{ $isUnlocked ? 'text-dark' : 'text-muted' }}">
                                                 {{ $content->title ?? 'Materi ' . $content->order }}
                                             </small>
-                                            <small class="text-muted">
-                                                {{ $content->type === 'text' ? 'Teks' : 'Quiz' }}
+                                            <small class="content-status-label {{ $statusClass }}">
+                                                {{ $statusLabel }}
                                             </small>
                                         </div>
                                     </a>
@@ -108,30 +110,31 @@
                                 <div class="accordion-body p-0">
                                     @foreach ($module->contents as $content)
                                         @php
-                                            $isCompleted = $contentProgress[$content->id] ?? false;
+                                            $state = $contentAccess[$content->id] ?? ['is_completed' => false, 'is_unlocked' => false];
+                                            $isCompleted = $state['is_completed'];
+                                            $isUnlocked = $state['is_unlocked'];
+                                            $contentTypeLabel = $content->type === 'text' ? 'Teks' : 'Quiz';
+                                            $statusLabel = $isCompleted ? 'Selesai' : ($isUnlocked ? 'Terbuka - ' . $contentTypeLabel : 'Terkunci');
+                                            $statusClass = $isCompleted ? 'text-success' : ($isUnlocked ? 'text-primary' : 'text-muted');
+                                            $iconClass = $isCompleted
+                                                ? 'ti ti-circle-check text-success fs-5'
+                                                : ($isUnlocked ? 'ti ti-lock-open text-primary fs-5' : 'ti ti-lock text-muted fs-5');
                                         @endphp
                                         <a href="#"
-                                            class="d-flex align-items-center text-decoration-none content-item p-3 border-bottom"
+                                            class="d-flex align-items-center text-decoration-none content-item p-3 border-bottom {{ !$isUnlocked ? 'content-locked' : '' }}"
                                             data-content-id="{{ $content->id }}" data-content-type="{{ $content->type }}"
-                                            data-bs-dismiss="offcanvas"
-                                            onclick="loadContent('{{ $content->id }}', '{{ $content->type }}'); return false;">
+                                            data-content-locked="{{ $isUnlocked ? '0' : '1' }}"
+                                            data-content-completed="{{ $isCompleted ? '1' : '0' }}"
+                                            aria-disabled="{{ $isUnlocked ? 'false' : 'true' }}">
                                             <div class="flex-shrink-0 me-2">
-                                                @if ($isCompleted)
-                                                    <i class="ti ti-circle-check text-success fs-5"></i>
-                                                @else
-                                                    @if ($content->type === 'text')
-                                                        <i class="ti ti-file-text text-muted"></i>
-                                                    @else
-                                                        <i class="ti ti-clipboard-list text-warning"></i>
-                                                    @endif
-                                                @endif
+                                                <i class="content-status-icon {{ $iconClass }}"></i>
                                             </div>
                                             <div class="flex-grow-1">
-                                                <small class="d-block text-dark">
+                                                <small class="d-block {{ $isUnlocked ? 'text-dark' : 'text-muted' }}">
                                                     {{ $content->title ?? 'Materi ' . $content->order }}
                                                 </small>
-                                                <small class="text-muted">
-                                                    {{ $content->type === 'text' ? 'Teks' : 'Quiz' }}
+                                                <small class="content-status-label {{ $statusClass }}">
+                                                    {{ $statusLabel }}
                                                 </small>
                                             </div>
                                         </a>
@@ -232,12 +235,50 @@
 
 @push('styles')
     <style>
+        /* Cegah seleksi/copy soal kuis & essay (jawaban tetap bisa diketik) */
+        .quiz-wrapper,
+        .quiz-wrapper h3,
+        .quiz-wrapper h6,
+        .quiz-wrapper .card-body,
+        .quiz-wrapper .form-check-label,
+        .quiz-wrapper .alert {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
+        /* Tetap izinkan input pengguna pada textarea esai */
+        .quiz-wrapper textarea,
+        .quiz-wrapper input[type="text"] {
+            -webkit-user-select: text;
+            -moz-user-select: text;
+            -ms-user-select: text;
+            user-select: text;
+        }
+
+        .essay-review-answer {
+            min-height: 110px;
+            line-height: 1.6;
+            resize: vertical;
+            overflow-y: auto;
+        }
+
         .content-item {
             transition: all 0.2s;
         }
 
         .content-item:hover {
             background-color: #f8f9fa;
+        }
+
+        .content-item.content-locked {
+            cursor: not-allowed;
+            background-color: #f8f9fa;
+        }
+
+        .content-item.content-locked:hover {
+            background-color: #f1f3f5;
         }
 
         .bg-soft-primary {
@@ -302,6 +343,7 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         let currentContentId = null;
+        let currentContentType = null;
         let currentQuizAttemptId = null;
         let integrityState = {
             active: false,
@@ -424,8 +466,113 @@
             });
         }
 
-        function loadContent(contentId, contentType) {
+        function getContentTitleForMessage(target) {
+            const item = target && target.nodeType ? $(target) : getPrimaryContentItem(target);
+            return item.find('.flex-grow-1 small:first').text().trim() || 'Konten ini';
+        }
+
+        function showLockedContentMessage(target) {
+            const contentTitle = getContentTitleForMessage(target);
+
+            Swal.fire({
+                icon: 'info',
+                title: contentTitle + ' terkunci',
+                text: 'Selesaikan konten sebelumnya agar bisa membuka konten berikutnya.',
+                confirmButtonColor: '#0d6efd'
+            });
+        }
+
+        function getPrimaryContentItem(contentId) {
+            const items = $('.content-item[data-content-id="' + contentId + '"]');
+            const visible = items.filter(':visible').first();
+            return visible.length ? visible : items.first();
+        }
+
+        function isContentLocked(contentId) {
+            const item = getPrimaryContentItem(contentId);
+            return item.length && item.attr('data-content-locked') === '1';
+        }
+
+        function updateProgressBar(progress) {
+            if (progress === undefined || progress === null) return;
+            $('.progress-bar').css('width', progress + '%');
+            $('.progress-bar').parent().siblings('small').text('Progress: ' + progress + '%');
+        }
+
+        function setContentItemUnlocked(contentId) {
+            $('.content-item[data-content-id="' + contentId + '"]').each(function() {
+                const item = $(this);
+                const typeLabel = item.attr('data-content-type') === 'text' ? 'Teks' : 'Quiz';
+
+                item.attr('data-content-locked', '0')
+                    .attr('aria-disabled', 'false')
+                    .removeClass('content-locked');
+
+                item.find('.content-status-icon')
+                    .removeClass()
+                    .addClass('content-status-icon ti ti-lock-open text-primary fs-5');
+
+                item.find('.content-status-label')
+                    .removeClass('text-muted text-success text-primary')
+                    .addClass('text-primary')
+                    .text('Terbuka - ' + typeLabel);
+
+                item.find('.flex-grow-1 small:first')
+                    .removeClass('text-muted')
+                    .addClass('text-dark');
+            });
+        }
+
+        function unlockNextContentItem(contentId) {
+            const currentItem = getPrimaryContentItem(contentId);
+            const nextItem = getNextContentItem(currentItem);
+            if (!nextItem.length) return;
+
+            setContentItemUnlocked(nextItem.attr('data-content-id'));
+        }
+
+        function setContentItemCompleted(contentId) {
+            $('.content-item[data-content-id="' + contentId + '"]').each(function() {
+                const item = $(this);
+
+                item.attr('data-content-completed', '1')
+                    .attr('data-content-locked', '0')
+                    .attr('aria-disabled', 'false')
+                    .removeClass('content-locked');
+
+                item.find('.content-status-icon')
+                    .removeClass()
+                    .addClass('content-status-icon ti ti-circle-check text-success fs-5');
+
+                item.find('.content-status-label')
+                    .removeClass('text-muted text-primary text-success')
+                    .addClass('text-success')
+                    .text('Selesai');
+
+                item.find('.flex-grow-1 small:first')
+                    .removeClass('text-muted')
+                    .addClass('text-dark');
+            });
+
+            unlockNextContentItem(contentId);
+        }
+
+        function closeMobileSidebarFromItem(item) {
+            const offcanvasEl = item.closest('.offcanvas');
+            if (!offcanvasEl || !window.bootstrap) return;
+
+            const instance = bootstrap.Offcanvas.getInstance(offcanvasEl) || new bootstrap.Offcanvas(offcanvasEl);
+            instance.hide();
+        }
+
+        function loadContent(contentId, contentType, options = {}) {
+            if (!options.ignoreLock && isContentLocked(contentId)) {
+                showLockedContentMessage(contentId);
+                return;
+            }
+
             currentContentId = contentId;
+            currentContentType = contentType;
             resetIntegrityState();
 
             $('.content-item').removeClass('bg-soft-primary');
@@ -438,8 +585,11 @@
                 '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-3 text-muted">Memuat konten...</p></div>'
             );
 
+            const url = '/user/daftar-kursus/{{ $kursus->id }}/content/' + contentId
+                + (options.retry ? '?retry=1' : '');
+
             $.ajax({
-                url: '/user/daftar-kursus/{{ $kursus->id }}/content/' + contentId,
+                url: url,
                 type: 'GET',
                 success: function(response) {
                     if (contentType === 'text') {
@@ -452,8 +602,11 @@
                     const msg = (xhr.responseJSON && xhr.responseJSON.error)
                         ? xhr.responseJSON.error
                         : 'Gagal memuat konten (HTTP ' + xhr.status + ')';
+                    const isLocked = xhr.status === 423 || (xhr.responseJSON && xhr.responseJSON.locked);
+                    const alertClass = isLocked ? 'warning' : 'danger';
+                    const icon = isLocked ? 'ti-lock' : 'ti-alert-circle';
                     $('#content-display').html(
-                        '<div class="alert alert-danger"><i class="ti ti-alert-circle"></i> ' + msg + '</div>'
+                        '<div class="alert alert-' + alertClass + '"><i class="ti ' + icon + '"></i> ' + msg + '</div>'
                     );
                 }
             });
@@ -619,11 +772,14 @@
                     integrityState.maxViolations = response.integrity_settings?.max_violations || integrityState.maxViolations;
                     integrityState.requireFullscreen = response.integrity_settings?.require_fullscreen || integrityState.requireFullscreen;
                 },
-                error: function() {
+                error: function(xhr) {
+                    const msg = (xhr.responseJSON && xhr.responseJSON.error)
+                        ? xhr.responseJSON.error
+                        : 'Gagal memulai attempt kuis.';
                     Swal.fire({
                         icon: 'error',
                         title: 'Gagal!',
-                        text: 'Gagal memulai attempt kuis.'
+                        text: msg
                     });
                 }
             });
@@ -661,13 +817,19 @@
             });
             html += '<div class="d-flex justify-content-between mt-4">';
             html += '<button type="button" class="btn btn-outline-secondary" onclick="previousContent()"><i class="ti ti-arrow-left"></i> Sebelumnya</button>';
-            const submitLabel = isManualGrading ? 'Kirim Jawaban' : 'Submit & Nilai dengan AI';
+            const submitLabel = isManualGrading ? 'Submit' : 'Submit & Nilai dengan AI';
             html += '<button type="submit" class="btn btn-success" id="essay-submit-btn"><i class="ti ti-send"></i> ' + submitLabel + '</button>';
             html += '</div></form>';
 
             if (integrity.enabled) html += '</div>';
             html += '</div>';
             $('#content-display').html(html);
+
+            // Reset capture and attach to every essay textarea for this attempt
+            keystrokeCapture.reset();
+            document.querySelectorAll('#quiz-form textarea').forEach(function(ta) {
+                keystrokeCapture.attach(ta);
+            });
 
             integrityState.enabled = !!integrity.enabled;
             integrityState.requireFullscreen = !!integrity.require_fullscreen;
@@ -689,6 +851,10 @@
 
             $('#essay-submit-btn').prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2"></span>Mengirim jawaban...');
 
+            // Collect keystroke stats before detaching listeners
+            const keystrokeStats = keystrokeCapture.getStats();
+            keystrokeCapture.detach();
+
             $.ajax({
                 url: '/user/daftar-kursus/{{ $kursus->id }}/quiz/' + contentId + '/submit',
                 type: 'POST',
@@ -696,6 +862,7 @@
                     _token: '{{ csrf_token() }}',
                     attempt_id: currentQuizAttemptId,
                     answers: answers,
+                    keystroke_data: keystrokeStats,
                 },
                 success: function(res) {
                     stopIntegrityMonitoring();
@@ -724,7 +891,7 @@
                     html += '<div class="col-md-4"><div class="card"><div class="card-body text-center">';
                     html += '<i class="ti ti-check fs-2 text-success"></i>';
                     html += '<h4 class="mt-2 mb-0">' + res.correct_answers + '/' + res.total_questions + '</h4>';
-                    html += '<small class="text-muted">Soal ≥70</small></div></div></div>';
+                    html += '<small class="text-muted">Soal >=70</small></div></div></div>';
                     html += '</div>';
 
                     html += '<h5 class="mb-3">Detail Penilaian AI</h5>';
@@ -735,7 +902,7 @@
                         html += '<span class="badge bg-' + sc + '">' + ea.score + '/100</span></div>';
                         html += '<div class="card-body">';
                         html += '<p class="fw-bold mb-1">' + escapeHtml(ea.question) + '</p>';
-                        html += '<div class="border rounded p-2 mb-2 bg-light"><small class="text-muted">Jawaban Anda:</small><p class="mb-0">' + escapeHtml(ea.answer || '-') + '</p></div>';
+                        html += renderEssayAnswerBox(ea.answer);
                         html += '<div class="alert alert-' + sc + ' mb-0 py-2"><i class="ti ti-robot me-1"></i><strong>Feedback AI:</strong> ' + escapeHtml(ea.feedback) + '</div>';
                         html += '</div></div>';
                     });
@@ -746,6 +913,10 @@
                     html += '</div></div>';
 
                     $('#content-display').html(html);
+                    resizeEssayReviewAnswers();
+                    if (res.is_passed) {
+                        setContentItemCompleted(contentId);
+                    }
                     updateProgressBar(res.progress);
                 },
                 error: function(xhr) {
@@ -848,14 +1019,19 @@
                 },
                 success: function(response) {
                     if (response.success) {
-                        $('[data-content-id="' + contentId + '"] i').removeClass().addClass(
-                            'ti ti-circle-check text-success fs-5');
-                        if (response.progress) {
-                            $('.progress-bar').css('width', response.progress + '%');
-                            $('.progress-bar').parent().siblings('small').text('Progress: ' + response
-                                .progress + '%');
-                        }
+                        setContentItemCompleted(contentId);
+                        updateProgressBar(response.progress);
                     }
+                },
+                error: function(xhr) {
+                    const msg = (xhr.responseJSON && xhr.responseJSON.error)
+                        ? xhr.responseJSON.error
+                        : 'Gagal menyimpan progress materi.';
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal!',
+                        text: msg
+                    });
                 }
             });
         }
@@ -884,11 +1060,14 @@
                         showQuizResult(response);
                     }
                 },
-                error: function() {
+                error: function(xhr) {
+                    const msg = (xhr.responseJSON && xhr.responseJSON.error)
+                        ? xhr.responseJSON.error
+                        : 'Terjadi kesalahan saat submit quiz';
                     Swal.fire({
                         icon: 'error',
                         title: 'Gagal!',
-                        text: 'Terjadi kesalahan saat submit quiz'
+                        text: msg
                     });
                 }
             });
@@ -901,7 +1080,7 @@
             let html = '<div class="text-center py-5">';
             html += result.is_passed ? '<i class="ti ti-circle-check text-success" style="font-size: 80px;"></i>' :
                 '<i class="ti ti-circle-x text-danger" style="font-size: 80px;"></i>';
-            html += '<h3 class="mt-4 mb-3">' + (result.is_passed ? 'Quiz Selesai! 🎉' : 'Belum Lulus') + '</h3>';
+            html += '<h3 class="mt-4 mb-3">' + (result.is_passed ? 'Quiz Selesai!' : 'Belum Lulus') + '</h3>';
             html += !result.is_passed ?
                 '<p class="text-muted">Nilai minimal untuk lulus adalah 70%. Silakan coba lagi.</p>' :
                 '<p class="text-muted">Selamat! Anda telah menyelesaikan quiz ini.</p>';
@@ -936,17 +1115,18 @@
             $('#content-display').html(html);
 
             if (result.is_passed) {
-                $('[data-content-id="' + currentContentId + '"] i').removeClass().addClass(
-                    'ti ti-circle-check text-success fs-5');
-                if (result.progress) {
-                    $('.progress-bar').css('width', result.progress + '%');
-                    $('.progress-bar').parent().siblings('small').text('Progress: ' + result.progress + '%');
-                }
+                setContentItemCompleted(currentContentId);
+                updateProgressBar(result.progress);
             }
         }
 
         function startFirstContent() {
-            const firstContent = $('.content-item').first();
+            let firstContent = $('.content-item[data-content-locked="0"][data-content-completed="0"]').first();
+            if (!firstContent.length) {
+                firstContent = $('.content-item[data-content-locked="0"]').first();
+            }
+            if (!firstContent.length) return;
+
             const contentId = firstContent.data('content-id');
             const contentType = firstContent.data('content-type');
             loadContent(contentId, contentType);
@@ -988,43 +1168,19 @@
             return prevItem;
         }
 
-        function nextContent() {
-            markAsComplete(currentContentId).then(function() {
-                const currentItem = $('[data-content-id="' + currentContentId + '"]');
-                const nextItem = getNextContentItem(currentItem);
-
-                if (nextItem.length) {
-                    const contentId = nextItem.data('content-id');
-                    const contentType = nextItem.data('content-type');
-                    loadContent(contentId, contentType);
-
-                    setTimeout(function() {
-                        nextItem[0].scrollIntoView({
-                            behavior: 'smooth',
-                            block: 'nearest'
-                        });
-                    }, 300);
-                } else {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Selamat! 🎉',
-                        html: 'Anda telah menyelesaikan <strong>semua materi</strong> dalam kursus ini!',
-                        confirmButtonText: 'Kembali ke Detail Kursus',
-                        confirmButtonColor: '#0d6efd'
-                    }).then(() => {
-                        window.location.href = '{{ route('user.kursus.show', $kursus->id) }}';
-                    });
-                }
-            });
-        }
-
-        function nextContentAfterQuiz() {
-            const currentItem = $('[data-content-id="' + currentContentId + '"]');
+        function goToNextContent() {
+            const currentItem = getPrimaryContentItem(currentContentId);
             const nextItem = getNextContentItem(currentItem);
 
             if (nextItem.length) {
                 const contentId = nextItem.data('content-id');
                 const contentType = nextItem.data('content-type');
+
+                if (nextItem.attr('data-content-locked') === '1') {
+                    showLockedContentMessage(nextItem[0]);
+                    return;
+                }
+
                 loadContent(contentId, contentType);
 
                 setTimeout(function() {
@@ -1036,14 +1192,29 @@
             } else {
                 Swal.fire({
                     icon: 'success',
-                    title: 'Selamat! 🎉',
                     html: 'Anda telah menyelesaikan <strong>semua materi</strong> dalam kursus ini!',
+                    title: 'Selamat!',
                     confirmButtonText: 'Kembali ke Detail Kursus',
                     confirmButtonColor: '#0d6efd'
                 }).then(() => {
                     window.location.href = '{{ route('user.kursus.show', $kursus->id) }}';
                 });
             }
+        }
+
+        function nextContent() {
+            if (currentContentType !== 'text') {
+                goToNextContent();
+                return;
+            }
+
+            markAsComplete(currentContentId).then(function() {
+                goToNextContent();
+            });
+        }
+
+        function nextContentAfterQuiz() {
+            goToNextContent();
         }
 
         function renderEssayPendingReview(data) {
@@ -1059,7 +1230,7 @@
             html += '</div>';
             html += '<div class="d-flex justify-content-between mt-4">';
             html += '<button type="button" class="btn btn-outline-secondary" onclick="previousContent()"><i class="ti ti-arrow-left"></i> Sebelumnya</button>';
-            html += '<button type="button" class="btn btn-primary" onclick="nextContent()">Selanjutnya <i class="ti ti-arrow-right"></i></button>';
+            html += '<span class="text-muted small align-self-center"><i class="ti ti-lock me-1"></i>Materi berikutnya terbuka setelah esai dinilai lulus.</span>';
             html += '</div></div>';
             $('#content-display').html(html);
         }
@@ -1067,6 +1238,7 @@
         function renderEssayReview(data) {
             const attempt = data.attempt;
             const isManual = data.grading_type === 'manual';
+            const canRetry = isManual && !data.already_passed;
             const scoreClass = attempt.score >= 70 ? 'success' : 'danger';
             const essayAnswers = data.quiz_details || [];
 
@@ -1074,7 +1246,10 @@
             html += '<h3 class="mb-4">' + escapeHtml(data.title || 'Esai') + '</h3>';
             html += '<div class="alert alert-' + (data.already_passed ? 'success' : 'warning') + ' mb-4">';
             html += '<i class="ti ti-circle-check me-2"></i>Esai dinilai pada ' + (attempt.completed_at || '-');
-            html += data.already_passed ? ' — <strong>Lulus</strong>' : ' — <strong>Belum Lulus</strong>';
+            html += data.already_passed ? ' - <strong>Lulus</strong>' : ' - <strong>Belum Lulus (nilai minimum 70)</strong>';
+            if (canRetry) {
+                html += '<div class="mt-2 mb-0"><i class="ti ti-refresh me-1"></i>Anda dapat mengulang kuis ini untuk memperbaiki nilai. Klik tombol <strong>Coba Lagi</strong> di bawah.</div>';
+            }
             html += '</div>';
 
             html += '<div class="row g-3 mb-4">';
@@ -1084,7 +1259,7 @@
             html += '<small class="text-muted">Nilai Rata-rata</small></div></div></div>';
             html += '<div class="col-md-4"><div class="card"><div class="card-body text-center">';
             html += '<h4 class="mt-2 mb-0">' + attempt.correct_answers + '/' + attempt.total_questions + '</h4>';
-            html += '<small class="text-muted">Soal ≥70</small></div></div></div>';
+            html += '<small class="text-muted">Soal >=70</small></div></div></div>';
             html += '</div>';
 
             if (isManual && attempt.admin_notes) {
@@ -1103,7 +1278,7 @@
                 html += '<span class="badge bg-' + sc + '">' + (ea.score !== undefined ? ea.score + '/100' : '-') + '</span></div>';
                 html += '<div class="card-body">';
                 html += '<p class="fw-bold mb-1">' + escapeHtml(ea.question || '') + '</p>';
-                html += '<div class="border rounded p-2 mb-2 bg-light"><small class="text-muted">Jawaban Anda:</small><p class="mb-0">' + escapeHtml(ea.answer || '-') + '</p></div>';
+                html += renderEssayAnswerBox(ea.answer);
                 if (ea.feedback) {
                     html += '<div class="alert alert-' + sc + ' mb-0 py-2"><i class="ti ' + feedbackIcon + ' me-1"></i><strong>' + feedbackLabel + ':</strong> ' + escapeHtml(ea.feedback) + '</div>';
                 }
@@ -1112,13 +1287,53 @@
 
             html += '<div class="d-flex justify-content-between mt-4">';
             html += '<button type="button" class="btn btn-outline-secondary" onclick="previousContent()"><i class="ti ti-arrow-left"></i> Sebelumnya</button>';
-            html += '<button type="button" class="btn btn-primary" onclick="nextContent()">Selanjutnya <i class="ti ti-arrow-right"></i></button>';
+            html += '<div class="d-flex gap-2">';
+            if (canRetry) {
+                html += '<button type="button" class="btn btn-warning" onclick="retryEssay(\'' + data.id + '\')"><i class="ti ti-refresh"></i> Coba Lagi</button>';
+            }
+            if (data.already_passed) {
+                html += '<button type="button" class="btn btn-primary" onclick="nextContent()">Selanjutnya <i class="ti ti-arrow-right"></i></button>';
+            }
+            html += '</div>';
             html += '</div></div>';
             $('#content-display').html(html);
+            resizeEssayReviewAnswers();
+        }
+
+        function renderEssayAnswerBox(answer) {
+            return '<div class="essay-review-answer-wrap mb-2">'
+                + '<small class="text-muted">Jawaban Anda:</small>'
+                + '<textarea class="form-control bg-light essay-review-answer mt-1" rows="4" readonly aria-label="Jawaban Anda">'
+                + escapeHtml(answer || '-')
+                + '</textarea>'
+                + '</div>';
+        }
+
+        function resizeEssayReviewAnswers() {
+            document.querySelectorAll('.essay-review-answer').forEach(function(textarea) {
+                textarea.style.height = 'auto';
+                textarea.style.height = (textarea.scrollHeight + 4) + 'px';
+            });
+        }
+
+        function retryEssay(contentId) {
+            Swal.fire({
+                icon: 'question',
+                title: 'Coba Lagi Kuis Esai?',
+                text: 'Anda akan mengerjakan ulang kuis ini. Jawaban sebelumnya tetap tersimpan sebagai riwayat.',
+                showCancelButton: true,
+                confirmButtonText: 'Ya, Coba Lagi',
+                cancelButtonText: 'Batal',
+                confirmButtonColor: '#f59f00',
+            }).then(function(result) {
+                if (result.isConfirmed) {
+                    loadContent(contentId, 'quiz', { retry: true });
+                }
+            });
         }
 
         function previousContent() {
-            const currentItem = $('[data-content-id="' + currentContentId + '"]');
+            const currentItem = getPrimaryContentItem(currentContentId);
             const prevItem = getPreviousContentItem(currentItem);
 
             if (prevItem.length) {
@@ -1144,16 +1359,190 @@
         }
 
         $(document).ready(function() {
+            $(document).on('click', '.content-item', function(e) {
+                e.preventDefault();
+
+                if ($(this).attr('data-content-locked') === '1') {
+                    showLockedContentMessage(this);
+                    return false;
+                }
+
+                const contentId = $(this).attr('data-content-id');
+                const contentType = $(this).attr('data-content-type');
+                loadContent(contentId, contentType);
+                closeMobileSidebarFromItem(this);
+                return false;
+            });
+
             const urlParams = new URLSearchParams(window.location.search);
             const contentId = urlParams.get('content');
 
             if (contentId) {
-                const contentItem = $('[data-content-id="' + contentId + '"]');
+                const contentItem = getPrimaryContentItem(contentId);
                 if (contentItem.length) {
                     const contentType = contentItem.data('content-type');
                     loadContent(contentId, contentType);
                 }
             }
+
+            // Cegah copy/cut/right-click pada area soal kuis & essay
+            const isInsideQuizQuestion = (el) => {
+                const wrap = el && el.closest && el.closest('.quiz-wrapper');
+                if (!wrap) return false;
+                const tag = (el.tagName || '').toLowerCase();
+                // Izinkan textarea jawaban dan input teks
+                if (tag === 'textarea') return false;
+                if (tag === 'input' && (el.type === 'text' || el.type === 'number')) return false;
+                return true;
+            };
+
+            $(document).on('contextmenu copy cut dragstart', function(e) {
+                if (isInsideQuizQuestion(e.target)) {
+                    e.preventDefault();
+                    return false;
+                }
+            });
+
+            $(document).on('keydown', function(e) {
+                if (!isInsideQuizQuestion(e.target)) return;
+                const k = (e.key || '').toLowerCase();
+                if ((e.ctrlKey || e.metaKey) && (k === 'c' || k === 'x' || k === 'a' || k === 's' || k === 'p')) {
+                    e.preventDefault();
+                    return false;
+                }
+            });
         });
+
+        // ── Keystroke Dynamics Capture ──────────────────────────────────────────
+        // Records dwell time (key-hold), flight time (inter-key gap), typing speed,
+        // and error rate silently while the student types essay answers.
+        // Stats are sent with the submission for server-side anomaly analysis.
+
+        class KeystrokeCapture {
+            constructor() {
+                this._events      = [];
+                this._downTimes   = {};
+                this._lastUpTime  = null;
+                this._attached    = [];
+                this._pasteCount  = 0;
+                this._pastedChars = 0;
+                this._textareas   = [];
+            }
+
+            attach(el) {
+                const onDown  = (e) => this._onDown(e);
+                const onUp    = (e) => this._onUp(e);
+                const onPaste = (e) => this._onPaste(e);
+                el.addEventListener('keydown', onDown);
+                el.addEventListener('keyup',   onUp);
+                el.addEventListener('paste',   onPaste);
+                this._attached.push({ el, onDown, onUp, onPaste });
+                if (el.tagName && el.tagName.toLowerCase() === 'textarea') {
+                    this._textareas.push(el);
+                }
+            }
+
+            detach() {
+                for (const { el, onDown, onUp, onPaste } of this._attached) {
+                    el.removeEventListener('keydown', onDown);
+                    el.removeEventListener('keyup',   onUp);
+                    el.removeEventListener('paste',   onPaste);
+                }
+                this._attached = [];
+            }
+
+            reset() {
+                this.detach();
+                this._events      = [];
+                this._downTimes   = {};
+                this._lastUpTime  = null;
+                this._pasteCount  = 0;
+                this._pastedChars = 0;
+                this._textareas   = [];
+            }
+
+            _onPaste(e) {
+                this._pasteCount++;
+                const txt = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+                this._pastedChars += txt.length;
+            }
+
+            _onDown(e) {
+                if (!this._downTimes[e.code]) {
+                    this._downTimes[e.code] = performance.now();
+                }
+            }
+
+            _onUp(e) {
+                const t0 = this._downTimes[e.code];
+                if (t0 === undefined) return;
+                const t1    = performance.now();
+                const dwell = t1 - t0;
+                delete this._downTimes[e.code];
+
+                const flight = this._lastUpTime !== null ? t1 - this._lastUpTime : null;
+                this._lastUpTime = t1;
+
+                this._events.push({
+                    code:    e.code,
+                    dwell:   dwell,
+                    flight:  flight,
+                    isError: e.code === 'Backspace' || e.code === 'Delete',
+                });
+            }
+
+            getStats() {
+                const events = this._events;
+                const totalAnswerChars = this._textareas
+                    .reduce((sum, ta) => sum + (ta.value || '').length, 0);
+
+                // Hanya skip jika benar-benar tidak ada aktivitas: tidak ketik & tidak paste & jawaban kosong
+                if (events.length === 0 && this._pasteCount === 0 && totalAnswerChars === 0) {
+                    return null;
+                }
+
+                const valid = (arr, lo, hi) => arr.filter(v => v !== null && v >= lo && v < hi);
+                const mean  = (arr) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+                const std   = (arr, m) => arr.length > 1
+                    ? Math.sqrt(arr.reduce((a, b) => a + (b - m) ** 2, 0) / arr.length)
+                    : 0;
+
+                const dwells  = valid(events.map(e => e.dwell),  10, 1000);
+                const flights = valid(events.map(e => e.flight), 10, 3000);
+                const errors  = events.filter(e => e.isError).length;
+                const chars   = events.filter(e => !e.isError).length;
+
+                // Metrik biometrik hanya valid jika ada cukup data ketukan
+                const hasEnoughBiometric = dwells.length >= 15;
+
+                let mDwell = null, mFlight = null, sDwell = null, sFlight = null, speedCps = null;
+                if (hasEnoughBiometric) {
+                    mDwell  = mean(dwells);
+                    mFlight = mean(flights);
+                    sDwell  = std(dwells, mDwell);
+                    sFlight = std(flights, mFlight);
+                    const totalTime = (dwells.reduce((a, b) => a + b, 0) + flights.reduce((a, b) => a + b, 0)) / 1000;
+                    speedCps = totalTime > 0.5 ? chars / totalTime : 0;
+                }
+
+                return {
+                    mean_dwell:        mDwell  !== null ? +mDwell.toFixed(1)  : null,
+                    std_dwell:         sDwell  !== null ? +sDwell.toFixed(1)  : null,
+                    mean_flight:       mFlight !== null ? +mFlight.toFixed(1) : null,
+                    std_flight:        sFlight !== null ? +sFlight.toFixed(1) : null,
+                    mean_speed_cps:    speedCps !== null ? +speedCps.toFixed(2) : null,
+                    std_speed_cps:     0,
+                    error_rate:        chars > 0 ? +(errors / (chars + errors)).toFixed(3) : 0,
+                    total_keystrokes:  events.length,
+                    paste_count:       this._pasteCount,
+                    pasted_chars:      this._pastedChars,
+                    total_answer_chars: totalAnswerChars,
+                    device_type:       /Mobi|Android/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
+                };
+            }
+        }
+
+        // Single instance reused across the quiz session
+        let keystrokeCapture = new KeystrokeCapture();
     </script>
 @endpush

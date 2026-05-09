@@ -11,6 +11,7 @@ use App\Models\UserCourse;
 use App\Models\UserQuizAnswer;
 use App\Models\UserQuizAttempt;
 use App\Models\UserQuizIntegrityEvent;
+use App\Services\KeystrokeAnalysisService;
 use App\Services\OpenAIService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -133,7 +134,16 @@ class ListKursusController extends Controller
         $user = Auth::user();
 
         $kursus = Kursus::with([
-            'modules.contents.questions.options'
+            'modules' => function ($query) {
+                $query->orderBy('order', 'asc');
+            },
+            'modules.contents' => function ($query) {
+                $query->orderBy('order', 'asc');
+            },
+            'modules.contents.questions' => function ($query) {
+                $query->orderBy('order', 'asc');
+            },
+            'modules.contents.questions.options',
         ])->findOrFail($id);
 
         $userCourse = $user->getEnrolledCourse($kursus->id);
@@ -150,15 +160,86 @@ class ListKursusController extends Controller
             ]);
         }
 
-        $contentProgress = $userCourse->contentProgress()->pluck('is_completed', 'content_id')->toArray();
+        $contentAccess = $this->buildContentAccessMap($kursus, $userCourse);
 
-        return view('user.kursus.learn', compact('kursus', 'userCourse', 'contentProgress'));
+        return view('user.kursus.learn', compact('kursus', 'userCourse', 'contentAccess'));
+    }
+
+    private function findCourseContent(string $kursusId, string $contentId, array $with = []): Content
+    {
+        return Content::with($with)
+            ->where('id', $contentId)
+            ->whereHas('module', function ($query) use ($kursusId) {
+                $query->where('kursus_id', $kursusId);
+            })
+            ->firstOrFail();
+    }
+
+    private function findCourseForAccess(string $kursusId): Kursus
+    {
+        return Kursus::with([
+            'modules' => function ($query) {
+                $query->orderBy('order', 'asc');
+            },
+            'modules.contents' => function ($query) {
+                $query->orderBy('order', 'asc');
+            },
+        ])->findOrFail($kursusId);
+    }
+
+    private function buildContentAccessMap(Kursus $kursus, UserCourse $userCourse): array
+    {
+        $completedMap = $userCourse->contentProgress()
+            ->pluck('is_completed', 'content_id')
+            ->map(fn($isCompleted) => (bool) $isCompleted)
+            ->toArray();
+
+        $access = [];
+        $hasOpenIncomplete = false;
+
+        foreach ($kursus->modules as $module) {
+            foreach ($module->contents as $content) {
+                $isCompleted = (bool) ($completedMap[$content->id] ?? false);
+                $isUnlocked = $isCompleted || !$hasOpenIncomplete;
+
+                $access[$content->id] = [
+                    'is_completed' => $isCompleted,
+                    'is_unlocked' => $isUnlocked,
+                ];
+
+                if (!$isCompleted && !$hasOpenIncomplete) {
+                    $hasOpenIncomplete = true;
+                }
+            }
+        }
+
+        return $access;
+    }
+
+    private function ensureContentUnlocked(string $kursusId, string $contentId, UserCourse $userCourse)
+    {
+        $kursus = $this->findCourseForAccess($kursusId);
+        $contentAccess = $this->buildContentAccessMap($kursus, $userCourse);
+
+        if (!($contentAccess[$contentId]['is_unlocked'] ?? false)) {
+            $contentTitle = $kursus->modules
+                ->flatMap(fn($module) => $module->contents)
+                ->firstWhere('id', $contentId)
+                ?->title ?? 'Konten ini';
+
+            return response()->json([
+                'error' => $contentTitle . ' terkunci. Selesaikan konten sebelumnya agar bisa membuka konten berikutnya.',
+                'locked' => true,
+                'content_title' => $contentTitle,
+            ], 423);
+        }
+
+        return null;
     }
 
     public function getContent($kursusId, $contentId)
     {
-        $content = Content::with(['questions.options', 'module'])
-            ->findOrFail($contentId);
+        $content = $this->findCourseContent($kursusId, $contentId, ['questions.options', 'module']);
 
         /** @var User $user */
         $user = Auth::user();
@@ -166,6 +247,10 @@ class ListKursusController extends Controller
         $userCourse = $user->getEnrolledCourse($kursusId);
         if (!$userCourse) {
             return response()->json(['error' => 'Access denied'], 403);
+        }
+
+        if ($lockedResponse = $this->ensureContentUnlocked($kursusId, $contentId, $userCourse)) {
+            return $lockedResponse;
         }
 
         if ($content->type === 'text') {
@@ -186,6 +271,67 @@ class ListKursusController extends Controller
 
         // ── AI-generated quiz ──────────────────────────────────────────────
         if ($content->is_ai_generated) {
+            // For AI essay with manual grading, route to pending/graded status first
+            if ($content->quiz_type === 'essay' && $content->grading_type === 'manual') {
+                $isRetry = request()->boolean('retry');
+
+                $pendingReview = UserQuizAttempt::where('user_id', Auth::id())
+                    ->where('content_id', $contentId)
+                    ->where('user_course_id', $userCourse->id)
+                    ->where('grading_status', 'pending_review')
+                    ->latest()
+                    ->first();
+
+                if ($pendingReview) {
+                    return response()->json([
+                        'id'              => $content->id,
+                        'title'           => $content->title,
+                        'type'            => 'quiz',
+                        'quiz_type'       => 'essay',
+                        'grading_type'    => 'manual',
+                        'is_ai_generated' => true,
+                        'already_passed'  => false,
+                        'pending_review'  => true,
+                        'integrity_settings' => $integritySettings,
+                    ]);
+                }
+
+                if (!$isRetry) {
+                    $gradedAttempt = UserQuizAttempt::where('user_id', Auth::id())
+                        ->where('content_id', $contentId)
+                        ->where('user_course_id', $userCourse->id)
+                        ->where('grading_status', 'graded')
+                        ->latest()
+                        ->first();
+
+                    if ($gradedAttempt) {
+                        return response()->json([
+                            'id'              => $content->id,
+                            'title'           => $content->title,
+                            'type'            => 'quiz',
+                            'quiz_type'       => 'essay',
+                            'grading_type'    => 'manual',
+                            'grading_status'  => 'graded',
+                            'is_ai_generated' => true,
+                            'already_passed'  => (bool) $gradedAttempt->is_passed,
+                            'pending_review'  => false,
+                            'integrity_settings' => $integritySettings,
+                            'attempt'         => [
+                                'score'             => $gradedAttempt->score,
+                                'correct_answers'   => $gradedAttempt->correct_answers,
+                                'total_questions'   => $gradedAttempt->total_questions,
+                                'completed_at'      => $gradedAttempt->completed_at?->format('d M Y H:i'),
+                                'violation_count'   => $gradedAttempt->violation_count,
+                                'is_auto_submitted' => $gradedAttempt->is_auto_submitted,
+                                'admin_notes'       => $gradedAttempt->admin_notes,
+                            ],
+                            'quiz_details'    => $gradedAttempt->essay_answers ?? [],
+                        ]);
+                    }
+                }
+                // Fall through: generate/reuse incomplete attempt for retry or first try
+            }
+
             $passedAttempt = UserQuizAttempt::where('user_id', Auth::id())
                 ->where('content_id', $contentId)
                 ->where('user_course_id', $userCourse->id)
@@ -252,6 +398,7 @@ class ListKursusController extends Controller
                     'title'           => $content->title,
                     'type'            => 'quiz',
                     'quiz_type'       => 'essay',
+                    'grading_type'    => $content->grading_type ?? 'ai',
                     'is_ai_generated' => true,
                     'already_passed'  => false,
                     'integrity_settings' => $integritySettings,
@@ -277,6 +424,8 @@ class ListKursusController extends Controller
 
             // Check for pending admin review
             if ($isManualGrading) {
+                $isRetry = request()->boolean('retry');
+
                 $pendingAttempt = UserQuizAttempt::where('user_id', Auth::id())
                     ->where('content_id', $contentId)
                     ->where('user_course_id', $userCourse->id)
@@ -297,34 +446,37 @@ class ListKursusController extends Controller
                     ]);
                 }
 
-                $gradedAttempt = UserQuizAttempt::where('user_id', Auth::id())
-                    ->where('content_id', $contentId)
-                    ->where('user_course_id', $userCourse->id)
-                    ->where('grading_status', 'graded')
-                    ->latest()
-                    ->first();
+                if (!$isRetry) {
+                    $gradedAttempt = UserQuizAttempt::where('user_id', Auth::id())
+                        ->where('content_id', $contentId)
+                        ->where('user_course_id', $userCourse->id)
+                        ->where('grading_status', 'graded')
+                        ->latest()
+                        ->first();
 
-                if ($gradedAttempt) {
-                    return response()->json([
-                        'id'             => $content->id,
-                        'title'          => $content->title,
-                        'type'           => 'quiz',
-                        'quiz_type'      => 'essay',
-                        'grading_type'   => 'manual',
-                        'already_passed' => (bool) $gradedAttempt->is_passed,
-                        'pending_review' => false,
-                        'integrity_settings' => $integritySettings,
-                        'attempt'        => [
-                            'score'           => $gradedAttempt->score,
-                            'correct_answers' => $gradedAttempt->correct_answers,
-                            'total_questions' => $gradedAttempt->total_questions,
-                            'completed_at'    => $gradedAttempt->completed_at?->format('d M Y H:i'),
-                            'violation_count' => $gradedAttempt->violation_count,
-                            'is_auto_submitted' => $gradedAttempt->is_auto_submitted,
-                            'admin_notes'     => $gradedAttempt->admin_notes,
-                        ],
-                        'quiz_details'   => $gradedAttempt->essay_answers ?? [],
-                    ]);
+                    if ($gradedAttempt) {
+                        return response()->json([
+                            'id'             => $content->id,
+                            'title'          => $content->title,
+                            'type'           => 'quiz',
+                            'quiz_type'      => 'essay',
+                            'grading_type'   => 'manual',
+                            'grading_status' => 'graded',
+                            'already_passed' => (bool) $gradedAttempt->is_passed,
+                            'pending_review' => false,
+                            'integrity_settings' => $integritySettings,
+                            'attempt'        => [
+                                'score'           => $gradedAttempt->score,
+                                'correct_answers' => $gradedAttempt->correct_answers,
+                                'total_questions' => $gradedAttempt->total_questions,
+                                'completed_at'    => $gradedAttempt->completed_at?->format('d M Y H:i'),
+                                'violation_count' => $gradedAttempt->violation_count,
+                                'is_auto_submitted' => $gradedAttempt->is_auto_submitted,
+                                'admin_notes'     => $gradedAttempt->admin_notes,
+                            ],
+                            'quiz_details'   => $gradedAttempt->essay_answers ?? [],
+                        ]);
+                    }
                 }
 
                 return response()->json([
@@ -586,10 +738,14 @@ class ListKursusController extends Controller
             return response()->json(['error' => 'Access denied'], 403);
         }
 
-        $content = Content::with('questions')->findOrFail($contentId);
+        $content = $this->findCourseContent($kursusId, $contentId, ['questions']);
 
         if ($content->type !== 'quiz') {
             return response()->json(['error' => 'Not a quiz'], 400);
+        }
+
+        if ($lockedResponse = $this->ensureContentUnlocked($kursusId, $contentId, $userCourse)) {
+            return $lockedResponse;
         }
 
         $integritySettings = [
@@ -611,7 +767,7 @@ class ListKursusController extends Controller
             if (!$attempt) {
                 // Edge case: getContent() wasn't called first — generate now
                 try {
-                    $generatedQuestions = $this->generateAiQuestions($content, false);
+                    $generatedQuestions = $this->generateAiQuestions($content, $content->quiz_type === 'essay');
                 } catch (\RuntimeException $e) {
                     return response()->json(['error' => $e->getMessage()], 500);
                 }
@@ -679,7 +835,7 @@ class ListKursusController extends Controller
             return response()->json(['error' => 'Access denied'], 403);
         }
 
-        $content = Content::with('questions')->findOrFail($contentId);
+        $content = $this->findCourseContent($kursusId, $contentId, ['questions']);
         $attempt = UserQuizAttempt::where('id', $request->attempt_id)
             ->where('user_id', Auth::id())
             ->where('content_id', $contentId)
@@ -779,6 +935,17 @@ class ListKursusController extends Controller
             return response()->json(['error' => 'Access denied'], 403);
         }
 
+        $content = $this->findCourseContent($kursusId, $contentId, ['module']);
+        if ($content->type === 'quiz') {
+            return response()->json([
+                'error' => 'Quiz hanya dapat diselesaikan melalui submit jawaban.',
+            ], 422);
+        }
+
+        if ($lockedResponse = $this->ensureContentUnlocked($kursusId, $contentId, $userCourse)) {
+            return $lockedResponse;
+        }
+
         $progress = UserContentProgress::where('user_id', Auth::id())
             ->where('content_id', $contentId)
             ->where('user_course_id', $userCourse->id)
@@ -817,10 +984,14 @@ class ListKursusController extends Controller
             return response()->json(['error' => 'Access denied'], 403);
         }
 
-        $content = Content::with('questions.options')->findOrFail($contentId);
+        $content = $this->findCourseContent($kursusId, $contentId, ['questions.options']);
 
         if ($content->type !== 'quiz') {
             return response()->json(['error' => 'Not a quiz'], 400);
+        }
+
+        if ($lockedResponse = $this->ensureContentUnlocked($kursusId, $contentId, $userCourse)) {
+            return $lockedResponse;
         }
 
         $answers = $request->input('answers', []);
@@ -837,6 +1008,7 @@ class ListKursusController extends Controller
             }
 
             if ($attempt && $attempt->completed_at) {
+                DB::rollBack();
                 return response()->json(['error' => 'Attempt already completed'], 422);
             }
 
@@ -874,7 +1046,7 @@ class ListKursusController extends Controller
                 }
 
                 // ── Manual grading: save and notify user to wait ───────────
-                if (!$content->is_ai_generated && $content->grading_type === 'manual') {
+                if ($content->grading_type === 'manual') {
                     $essayAnswers = [];
                     foreach ($qas as $i => $qa) {
                         $essayAnswers['essay_' . $i] = [
@@ -892,6 +1064,9 @@ class ListKursusController extends Controller
                     ]);
 
                     DB::commit();
+
+                    // Process keystroke dynamics after commit
+                    $this->processKeystrokeData($attempt, $request);
 
                     return response()->json([
                         'success'        => true,
@@ -942,6 +1117,9 @@ class ListKursusController extends Controller
 
                 DB::commit();
 
+                // Process keystroke dynamics after commit
+                $this->processKeystrokeData($attempt, $request);
+
                 return response()->json([
                     'success'         => true,
                     'is_passed'       => $isPassed,
@@ -958,6 +1136,7 @@ class ListKursusController extends Controller
             // ── AI quiz scoring ────────────────────────────────────────────
             if ($content->is_ai_generated) {
                 if (!$attempt || !$attempt->generated_questions) {
+                    DB::rollBack();
                     return response()->json(['error' => 'Attempt AI tidak valid'], 422);
                 }
 
@@ -1047,7 +1226,8 @@ class ListKursusController extends Controller
                 }
             }
 
-            $score    = ($correctAnswers / $content->questions->count()) * 100;
+            $questionCount = $content->questions->count();
+            $score    = $questionCount > 0 ? ($correctAnswers / $questionCount) * 100 : 0;
             $isPassed = $score >= 70;
 
             $attempt->update([
@@ -1070,7 +1250,7 @@ class ListKursusController extends Controller
                 'is_passed'        => $isPassed,
                 'score'            => round($score),
                 'correct_answers'  => $correctAnswers,
-                'total_questions'  => $content->questions->count(),
+                'total_questions'  => $questionCount,
                 'progress'         => $userCourse->fresh()->progress_percentage,
                 'is_auto_submitted' => false,
                 'violation_count'  => $attempt->violation_count,
@@ -1078,6 +1258,24 @@ class ListKursusController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['error' => 'Failed to submit quiz'], 500);
+        }
+    }
+
+    private function processKeystrokeData(UserQuizAttempt $attempt, Request $request): void
+    {
+        $raw = $request->input('keystroke_data');
+        if (empty($raw) || !is_array($raw)) {
+            return;
+        }
+
+        try {
+            app(KeystrokeAnalysisService::class)->processSession($attempt, $raw);
+        } catch (\Throwable $e) {
+            // Non-critical — never break the quiz submission response
+            \Illuminate\Support\Facades\Log::warning('Keystroke analysis failed', [
+                'attempt_id' => $attempt->id,
+                'error'      => $e->getMessage(),
+            ]);
         }
     }
 
