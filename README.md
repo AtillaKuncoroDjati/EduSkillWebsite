@@ -155,10 +155,53 @@ Fitur:
 - Deteksi keluar dari fullscreen
 - Batas maksimal pelanggaran
 - Warning ke user
-- Auto-submit jika pelanggaran mencapai batas
+- Auto-submit jika pelanggaran mencapai batas atau waktu habis
 - Riwayat pelanggaran dapat dilihat admin
+- Skor risiko integritas gabungan per attempt
+
+Skor risiko integritas (`integrity_risk_score`) dihitung pada rentang 0-100 dari beberapa sinyal:
+
+- Rasio pelanggaran perilaku terhadap batas maksimal
+- Skor anomali keystroke
+- Deteksi copy-paste
+- Auto-submit karena pelanggaran atau waktu habis
+
+Skor dikategorikan menjadi tiga level: `low` (di bawah 40), `medium` (40-69), dan `high` (70 ke atas). Logika perhitungan ada pada method `recomputeIntegrityRisk()` di `app/Models/UserQuizAttempt.php`.
 
 Catatan: fitur ini adalah sistem monitoring berbasis browser, bukan proteksi absolut.
+
+### Batas Waktu Kuis
+
+Admin dapat menetapkan batas waktu pengerjaan kuis per konten.
+
+- Diatur lewat kolom `time_limit_minutes` pada tabel `contents`
+- Nilai kosong (NULL) berarti kuis tanpa batas waktu
+- Halaman belajar menampilkan countdown ketika batas waktu aktif
+- Kuis dikirim otomatis saat waktu habis
+
+### Notifikasi Admin
+
+Admin panel menampilkan notifikasi yang diambil secara berkala melalui polling.
+
+Jenis notifikasi:
+
+- `essay_submitted`: ada esai siswa yang menunggu dinilai
+- `integrity_violation`: terjadi pelanggaran integritas kuis
+
+Fitur:
+
+- Indikator jumlah notifikasi belum dibaca di topbar
+- Suara notifikasi (`alarm.mp3` untuk pelanggaran, `notification_nilai.mp3` untuk esai)
+- Tandai satu notifikasi atau semua sekaligus sebagai sudah dibaca
+- Klik notifikasi menuju halaman terkait
+- Notifikasi pelanggaran integritas diperbarui per attempt, satu attempt satu notifikasi
+
+File utama:
+
+- `app/Http/Controllers/Admin/NotificationController.php`
+- `app/Models/AdminNotification.php`
+- `public/assets/js/admin-notifications.js`
+- `database/migrations/2026_05_16_000003_create_admin_notifications_table.php`
 
 ### Keystroke Dynamics untuk Esai
 
@@ -248,6 +291,12 @@ Entitas penting:
 - `user_quiz_integrity_events`
 - `keystroke_baselines`
 - `kursus_prerequisites`
+- `admin_notifications`
+
+Kolom tambahan penting:
+
+- `contents.time_limit_minutes`: batas waktu pengerjaan kuis dalam menit
+- `user_quiz_attempts.integrity_risk_score`: skor risiko integritas gabungan 0-100
 
 Relasi utama:
 
@@ -280,6 +329,7 @@ Controller admin:
 - `app/Http/Controllers/Admin/ContentController.php`
 - `app/Http/Controllers/Admin/EssayGradingController.php`
 - `app/Http/Controllers/Admin/QuizIntegrityController.php`
+- `app/Http/Controllers/Admin/NotificationController.php`
 - `app/Http/Controllers/Admin/UserController.php`
 
 Service:
@@ -387,7 +437,10 @@ Fitur yang sudah aktif di versi saat ini:
 - Review hasil esai user
 - Generate soal otomatis dari teks/PDF
 - Integrity mode dan log pelanggaran
+- Skor risiko integritas per attempt kuis
+- Batas waktu pengerjaan kuis dengan auto-submit
 - Keystroke dynamics untuk esai
+- Notifikasi admin untuk esai dan pelanggaran integritas
 - Suspend user
 - Sertifikat kursus
 - Explore Your Path
