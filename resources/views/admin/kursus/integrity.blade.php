@@ -18,7 +18,7 @@
                             <span class="d-none d-md-inline ms-1">Cari</span>
                         </button>
 
-                        <div class="dropdown">
+                        <div class="dropdown me-2">
                             <button class="btn btn-soft-secondary dropdown-toggle" type="button" id="filterAutoSubmit"
                                 data-bs-toggle="dropdown" aria-expanded="false">
                                 <i class="ti ti-filter"></i>
@@ -28,6 +28,20 @@
                                 <li><a class="dropdown-item filter-auto" href="#" data-status="all">Semua</a></li>
                                 <li><a class="dropdown-item filter-auto" href="#" data-status="yes">Ya</a></li>
                                 <li><a class="dropdown-item filter-auto" href="#" data-status="no">Tidak</a></li>
+                            </ul>
+                        </div>
+
+                        <div class="dropdown">
+                            <button class="btn btn-soft-secondary dropdown-toggle" type="button" id="filterRisk"
+                                data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="ti ti-alert-triangle"></i>
+                                <span class="d-none d-md-inline ms-1">Tingkat Risiko</span>
+                            </button>
+                            <ul class="dropdown-menu" aria-labelledby="filterRisk">
+                                <li><a class="dropdown-item filter-risk" href="#" data-risk="all">Semua</a></li>
+                                <li><a class="dropdown-item filter-risk" href="#" data-risk="high">Tinggi (&ge;70)</a></li>
+                                <li><a class="dropdown-item filter-risk" href="#" data-risk="medium">Sedang (40-69)</a></li>
+                                <li><a class="dropdown-item filter-risk" href="#" data-risk="low">Rendah (&lt;40)</a></li>
                             </ul>
                         </div>
                     </div>
@@ -42,6 +56,8 @@
                                 <th>Kursus</th>
                                 <th>Kuis</th>
                                 <th>Pelanggaran</th>
+                                <th>Keystroke</th>
+                                <th>Risiko</th>
                                 <th>Auto Submit</th>
                                 <th>Waktu Selesai</th>
                                 <th>Aksi</th>

@@ -14,6 +14,7 @@ class Content extends Model
         'integrity_mode_enabled' => 'boolean',
         'require_fullscreen'     => 'boolean',
         'max_violations'         => 'integer',
+        'time_limit_minutes'     => 'integer',
         'is_ai_generated'        => 'boolean',
         'ai_question_count'      => 'integer',
     ];
@@ -26,6 +27,7 @@ class Content extends Model
         'integrity_mode_enabled',
         'require_fullscreen',
         'max_violations',
+        'time_limit_minutes',
         'is_ai_generated',
         'ai_question_count',
         'quiz_type',

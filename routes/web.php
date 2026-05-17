@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\KursusController;
 use App\Http\Controllers\Admin\ContentController;
 use App\Http\Controllers\Admin\QuizIntegrityController;
 use App\Http\Controllers\Admin\EssayGradingController;
+use App\Http\Controllers\Admin\NotificationController;
 use App\Http\Controllers\Admin\ModuleController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\System\BackupController;
@@ -144,6 +145,12 @@ Route::middleware(['auth', 'check.access'])->group(function () {
         Route::post('list', [EssayGradingController::class, 'list'])->name('admin.essay.list');
         Route::get('{id}/show', [EssayGradingController::class, 'show'])->name('admin.essay.show');
         Route::post('{id}/grade', [EssayGradingController::class, 'grade'])->name('admin.essay.grade');
+    });
+
+    Route::prefix('admin/notifications')->middleware('access:admin')->group(function () {
+        Route::get('poll', [NotificationController::class, 'poll'])->name('admin.notifications.poll');
+        Route::post('{id}/read', [NotificationController::class, 'markRead'])->name('admin.notifications.read');
+        Route::post('read-all', [NotificationController::class, 'markAllRead'])->name('admin.notifications.readAll');
     });
 
     Route::prefix('admin/pengguna')->middleware('access:admin')->group(function () {

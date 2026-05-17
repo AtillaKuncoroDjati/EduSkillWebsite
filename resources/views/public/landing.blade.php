@@ -59,6 +59,7 @@
 
         .explore-badge {
             display: inline-flex;
+            align-self: center;
             align-items: center;
             gap: .4rem;
             font-size: .75rem;
@@ -162,6 +163,33 @@
             border-color: rgba(129, 140, 248, .7);
             box-shadow: 0 10px 20px rgba(0, 0, 0, .4);
         }
+
+        .category-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            font-size: .8rem;
+            font-weight: 600;
+            color: #4b5563;
+            background: #f3f4f6;
+            border: 1px solid #e5e7eb;
+            border-radius: 999px;
+            padding: .4rem .8rem;
+        }
+
+        .category-chip i {
+            color: #4f46e5;
+        }
+
+        [data-bs-theme="dark"] .category-chip {
+            color: #cbd5e1;
+            background: rgba(255, 255, 255, .05);
+            border-color: rgba(148, 163, 184, .25);
+        }
+
+        [data-bs-theme="dark"] .category-chip i {
+            color: #a5b4fc;
+        }
     </style>
 </head>
 
@@ -187,16 +215,28 @@
                         </span>
                         <h1 class="fw-bold mb-3 hero-title">Temukan Jalur Belajarmu Bersama EduSkill</h1>
                         <p class="text-muted fs-15 hero-subtitle">
-                            Jawab 5 pertanyaan singkat untuk menemukan kategori belajar yang paling cocok untukmu.
+                            EduSkill adalah platform belajar skill digital. Jawab 5 pertanyaan singkat,
+                            dan kami rekomendasikan jalur belajar yang paling cocok untukmu.
                         </p>
 
+                        <div class="d-flex flex-wrap justify-content-center gap-2 mb-4">
+                            @foreach ($categoryLabels as $key => $label)
+                                <span class="category-chip">
+                                    <i class="ti {{ $categoryIcons[$key] ?? 'ti-point' }}"></i>{{ $label }}
+                                </span>
+                            @endforeach
+                        </div>
+
                         <div class="col-md-9 mx-auto">
-                            <div class="d-grid mb-3">
+                            <div class="d-grid mb-2">
                                 <a href="{{ route('explore.index') }}"
                                     class="btn btn-primary cta-btn cta-btn-primary cta-btn-explore">
                                     <i class="ti ti-compass me-1"></i>Explore Your Path
                                 </a>
                             </div>
+                            <p class="text-muted small mb-3">
+                                <i class="ti ti-clock me-1"></i>&plusmn;1 menit &middot; 5 pertanyaan &middot; gratis, tanpa perlu akun
+                            </p>
                             <div class="row g-2">
                                 <div class="col-6">
                                     <a href="{{ route('auth.view') }}" class="btn cta-auth-btn w-100">

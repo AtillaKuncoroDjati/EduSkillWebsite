@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
+use App\Models\AdminNotification;
 use App\Models\Content;
 use App\Models\Kursus;
 use App\Models\User;
@@ -267,6 +268,7 @@ class ListKursusController extends Controller
             'enabled'          => (bool) $content->integrity_mode_enabled,
             'require_fullscreen' => (bool) $content->require_fullscreen,
             'max_violations'   => (int) ($content->max_violations ?? 3),
+            'time_limit_minutes' => $content->time_limit_minutes ? (int) $content->time_limit_minutes : null,
         ];
 
         // ── AI-generated quiz ──────────────────────────────────────────────
@@ -380,12 +382,13 @@ class ListKursusController extends Controller
                     return response()->json(['error' => $e->getMessage()], 500);
                 }
 
+                // started_at sengaja tidak diisi di sini — diisi saat siswa benar-benar
+                // menekan "Mulai Kuis" (startQuizAttempt), agar timer adil.
                 $pendingAttempt = UserQuizAttempt::create([
                     'user_id'             => Auth::id(),
                     'content_id'          => $contentId,
                     'user_course_id'      => $userCourse->id,
                     'total_questions'     => count($generatedQuestions),
-                    'started_at'          => now(),
                     'violation_count'     => 0,
                     'is_auto_submitted'   => false,
                     'generated_questions' => $generatedQuestions,
@@ -752,6 +755,7 @@ class ListKursusController extends Controller
             'enabled'            => (bool) $content->integrity_mode_enabled,
             'require_fullscreen' => (bool) $content->require_fullscreen,
             'max_violations'     => (int) ($content->max_violations ?? 3),
+            'time_limit_minutes' => $content->time_limit_minutes ? (int) $content->time_limit_minutes : null,
         ];
 
         if ($content->is_ai_generated) {
@@ -789,6 +793,7 @@ class ListKursusController extends Controller
                 'attempt_id'         => $attempt->id,
                 'violation_count'    => $attempt->violation_count,
                 'integrity_settings' => $integritySettings,
+                'elapsed_seconds'    => $this->ensureStartedAndElapsed($attempt),
             ]);
         }
 
@@ -817,7 +822,37 @@ class ListKursusController extends Controller
             'attempt_id'         => $attempt->id,
             'violation_count'    => $attempt->violation_count,
             'integrity_settings' => $integritySettings,
+            'elapsed_seconds'    => $this->ensureStartedAndElapsed($attempt),
         ]);
+    }
+
+    /**
+     * Pastikan attempt punya waktu mulai (started_at diisi sekali saja, saat kuis
+     * benar-benar dimulai) lalu kembalikan berapa detik berlalu sejak itu.
+     * Aman terhadap reload — started_at tidak di-reset jika sudah terisi.
+     */
+    private function ensureStartedAndElapsed(UserQuizAttempt $attempt): int
+    {
+        if (!$attempt->started_at) {
+            $attempt->started_at = now();
+            $attempt->save();
+        }
+
+        return (int) $attempt->started_at->diffInSeconds(now());
+    }
+
+    /**
+     * Cek apakah pengerjaan attempt sudah melewati batas waktu kuis.
+     * Toleransi 30 detik untuk latensi jaringan & proses auto-submit.
+     */
+    private function isTimeLimitExceeded(?UserQuizAttempt $attempt, Content $content): bool
+    {
+        $limit = (int) ($content->time_limit_minutes ?? 0);
+        if ($limit < 1 || !$attempt || !$attempt->started_at) {
+            return false;
+        }
+
+        return $attempt->started_at->diffInSeconds(now()) > ($limit * 60 + 30);
     }
 
     public function logIntegrityViolation($kursusId, $contentId, Request $request)
@@ -848,6 +883,23 @@ class ListKursusController extends Controller
                 'message' => 'Attempt already completed',
                 'already_completed' => true,
             ], 422);
+        }
+
+        // Debounce sisi server: satu perpindahan tab memicu event visibilitychange +
+        // window blur hampir bersamaan. Abaikan event kedua dalam jendela 1,2 detik
+        // agar satu pelanggaran tidak dihitung ganda.
+        $lastEvent = UserQuizIntegrityEvent::where('user_quiz_attempt_id', $attempt->id)
+            ->orderByDesc('event_at')
+            ->first();
+
+        if ($lastEvent && $lastEvent->event_at->diffInMilliseconds(now()) < 1200) {
+            return response()->json([
+                'success'           => true,
+                'violation_count'   => $attempt->violation_count,
+                'max_violations'    => (int) ($content->max_violations ?? 3),
+                'is_auto_submitted' => false,
+                'debounced'         => true,
+            ]);
         }
 
         $attempt->increment('violation_count');
@@ -911,6 +963,19 @@ class ListKursusController extends Controller
         if ($isPassed) {
             $this->markContentProgressComplete($contentId, $userCourse);
         }
+
+        $attempt->recomputeIntegrityRisk();
+
+        // Notifikasi admin hanya dibuat SEKALI per sesi kuis — yaitu saat batas
+        // pelanggaran tercapai & kuis auto-submit — supaya tidak spam tiap pelanggaran.
+        AdminNotification::integrityViolation(
+            $attempt->id,
+            $user->name,
+            $content->title ?? 'Kuis',
+            $attempt->violation_count,
+            true,
+            route('admin.kursus.integrity.index')
+        );
 
         return response()->json([
             'success' => true,
@@ -1055,18 +1120,30 @@ class ListKursusController extends Controller
                         ];
                     }
 
+                    $timeExceeded = $this->isTimeLimitExceeded($attempt, $content);
+
                     $attempt->update([
-                        'total_questions'   => count($qas),
-                        'essay_answers'     => $essayAnswers,
-                        'grading_status'    => 'pending_review',
-                        'is_auto_submitted' => false,
-                        'completed_at'      => now(),
+                        'total_questions'    => count($qas),
+                        'essay_answers'      => $essayAnswers,
+                        'grading_status'     => 'pending_review',
+                        'is_auto_submitted'  => $timeExceeded,
+                        'auto_submit_reason' => $timeExceeded ? 'time_limit_exceeded' : null,
+                        'completed_at'       => now(),
                     ]);
 
                     DB::commit();
 
                     // Process keystroke dynamics after commit
                     $this->processKeystrokeData($attempt, $request);
+                    $attempt->recomputeIntegrityRisk();
+
+                    // Notifikasi admin: esai menunggu penilaian manual
+                    AdminNotification::essaySubmitted(
+                        $attempt->id,
+                        $user->name,
+                        $content->title ?? 'Esai',
+                        route('admin.essay.show', $attempt->id)
+                    );
 
                     return response()->json([
                         'success'        => true,
@@ -1101,12 +1178,14 @@ class ListKursusController extends Controller
                 $isPassed       = $avgScore >= 70;
                 $passed         = count(array_filter($grades, fn($g) => $g['score'] >= 70));
 
+                $timeExceeded = $this->isTimeLimitExceeded($attempt, $content);
+
                 $attempt->update([
                     'correct_answers'    => $passed,
                     'score'              => round($avgScore),
                     'is_passed'          => $isPassed,
-                    'is_auto_submitted'  => false,
-                    'auto_submit_reason' => null,
+                    'is_auto_submitted'  => $timeExceeded,
+                    'auto_submit_reason' => $timeExceeded ? 'time_limit_exceeded' : null,
                     'essay_answers'      => $essayAnswers,
                     'completed_at'       => now(),
                 ]);
@@ -1119,6 +1198,7 @@ class ListKursusController extends Controller
 
                 // Process keystroke dynamics after commit
                 $this->processKeystrokeData($attempt, $request);
+                $attempt->recomputeIntegrityRisk();
 
                 return response()->json([
                     'success'         => true,
@@ -1128,7 +1208,8 @@ class ListKursusController extends Controller
                     'total_questions' => $totalQuestions,
                     'progress'        => $userCourse->fresh()->progress_percentage,
                     'essay_answers'   => $essayAnswers,
-                    'is_auto_submitted' => false,
+                    'is_auto_submitted' => $timeExceeded,
+                    'auto_submit_reason' => $timeExceeded ? 'time_limit_exceeded' : null,
                     'violation_count' => $attempt->violation_count,
                 ]);
             }
@@ -1161,13 +1242,14 @@ class ListKursusController extends Controller
                 $totalQuestions = count($generatedQuestions);
                 $score    = $totalQuestions > 0 ? ($correctAnswers / $totalQuestions) * 100 : 0;
                 $isPassed = $score >= 70;
+                $timeExceeded = $this->isTimeLimitExceeded($attempt, $content);
 
                 $attempt->update([
                     'correct_answers'    => $correctAnswers,
                     'score'              => round($score),
                     'is_passed'          => $isPassed,
-                    'is_auto_submitted'  => false,
-                    'auto_submit_reason' => null,
+                    'is_auto_submitted'  => $timeExceeded,
+                    'auto_submit_reason' => $timeExceeded ? 'time_limit_exceeded' : null,
                     'ai_answers'         => $aiAnswers,
                     'completed_at'       => now(),
                 ]);
@@ -1178,6 +1260,8 @@ class ListKursusController extends Controller
 
                 DB::commit();
 
+                $attempt->recomputeIntegrityRisk();
+
                 return response()->json([
                     'success'          => true,
                     'is_passed'        => $isPassed,
@@ -1185,7 +1269,9 @@ class ListKursusController extends Controller
                     'correct_answers'  => $correctAnswers,
                     'total_questions'  => $totalQuestions,
                     'progress'         => $userCourse->fresh()->progress_percentage,
-                    'is_auto_submitted' => false,
+                    'is_auto_submitted' => $timeExceeded,
+                    'auto_submit_reason' => $timeExceeded ? 'time_limit_exceeded' : null,
+                    'message'          => $timeExceeded ? 'Waktu habis. Kuis otomatis dikirim.' : null,
                     'violation_count'  => $attempt->violation_count,
                 ]);
             }
@@ -1229,13 +1315,14 @@ class ListKursusController extends Controller
             $questionCount = $content->questions->count();
             $score    = $questionCount > 0 ? ($correctAnswers / $questionCount) * 100 : 0;
             $isPassed = $score >= 70;
+            $timeExceeded = $this->isTimeLimitExceeded($attempt, $content);
 
             $attempt->update([
                 'correct_answers'    => $correctAnswers,
                 'score'              => round($score),
                 'is_passed'          => $isPassed,
-                'is_auto_submitted'  => false,
-                'auto_submit_reason' => null,
+                'is_auto_submitted'  => $timeExceeded,
+                'auto_submit_reason' => $timeExceeded ? 'time_limit_exceeded' : null,
                 'completed_at'       => now(),
             ]);
 
@@ -1245,6 +1332,8 @@ class ListKursusController extends Controller
 
             DB::commit();
 
+            $attempt->recomputeIntegrityRisk();
+
             return response()->json([
                 'success'          => true,
                 'is_passed'        => $isPassed,
@@ -1252,7 +1341,9 @@ class ListKursusController extends Controller
                 'correct_answers'  => $correctAnswers,
                 'total_questions'  => $questionCount,
                 'progress'         => $userCourse->fresh()->progress_percentage,
-                'is_auto_submitted' => false,
+                'is_auto_submitted' => $timeExceeded,
+                'auto_submit_reason' => $timeExceeded ? 'time_limit_exceeded' : null,
+                'message'          => $timeExceeded ? 'Waktu habis. Kuis otomatis dikirim.' : null,
                 'violation_count'  => $attempt->violation_count,
             ]);
         } catch (\Exception $e) {

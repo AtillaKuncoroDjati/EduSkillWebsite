@@ -237,6 +237,13 @@
                                     </div>
                                     <label class="form-label">Maksimal Pelanggaran</label>
                                     <input type="number" class="form-control" name="max_violations" min="1" max="20" value="3">
+
+                                    <label class="form-label mt-3">Batas Waktu Pengerjaan (menit)</label>
+                                    <input type="number" class="form-control" id="create-time-limit"
+                                        name="time_limit_minutes" min="1" max="300"
+                                        placeholder="Kosongkan jika tanpa batas waktu">
+                                    <small class="text-muted">Kosongkan untuk kuis tanpa batas waktu. Saat waktu
+                                        habis, kuis akan dikirim otomatis.</small>
                                 </div>
                             </div>
 
@@ -386,6 +393,13 @@
                                     </div>
                                     <label class="form-label">Maksimal Pelanggaran</label>
                                     <input type="number" class="form-control" id="edit-max-violations" name="max_violations" min="1" max="20" value="3">
+
+                                    <label class="form-label mt-3">Batas Waktu Pengerjaan (menit)</label>
+                                    <input type="number" class="form-control" id="edit-time-limit"
+                                        name="time_limit_minutes" min="1" max="300"
+                                        placeholder="Kosongkan jika tanpa batas waktu">
+                                    <small class="text-muted">Kosongkan untuk kuis tanpa batas waktu. Saat waktu
+                                        habis, kuis akan dikirim otomatis.</small>
                                 </div>
                             </div>
 
@@ -682,6 +696,7 @@
             $('#create-integrity-enabled').prop('checked', false);
             $('#create-require-fullscreen').prop('checked', false);
             $('input[name="max_violations"]').val(3);
+            $('#create-time-limit').val('');
             $('#create-qt-mc').prop('checked', true).trigger('change');
             $('#create-gt-ai').prop('checked', true);
             $('#create-grading-type-wrapper').addClass('d-none');
@@ -881,6 +896,7 @@
                     $('#edit-integrity-enabled').prop('checked', !!res.integrity_mode_enabled);
                     $('#edit-require-fullscreen').prop('checked', !!res.require_fullscreen);
                     $('#edit-max-violations').val(res.max_violations || 3);
+                    $('#edit-time-limit').val(res.time_limit_minutes || '');
 
                     // Populate quiz_type
                     const quizType = res.quiz_type || 'multiple_choice';

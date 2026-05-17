@@ -11,7 +11,7 @@
 
         <div class="col-lg-3 border-end d-none d-lg-block" style="height: calc(100vh - 70px); overflow-y: auto;">
             <div class="p-3 border-bottom bg-light sticky-top">
-                <a href="{{ route('user.kursus.show', $kursus->id) }}" class="btn btn-sm btn-outline-secondary mb-2">
+                <a href="{{ route('user.kursus.show', $kursus->id) }}" class="btn btn-sm btn-outline-secondary mb-2 quiz-back-btn">
                     <i class="ti ti-arrow-left"></i> Kembali
                 </a>
                 <h6 class="mb-1 fw-bold">{{ $kursus->title }}</h6>
@@ -89,7 +89,7 @@
             </div>
             <div class="offcanvas-body p-0">
                 <div class="p-3 border-bottom">
-                    <a href="{{ route('user.kursus.show', $kursus->id) }}" class="btn btn-sm btn-outline-secondary w-100">
+                    <a href="{{ route('user.kursus.show', $kursus->id) }}" class="btn btn-sm btn-outline-secondary w-100 quiz-back-btn">
                         <i class="ti ti-arrow-left"></i> Kembali
                     </a>
                 </div>
@@ -264,6 +264,33 @@
             overflow-y: auto;
         }
 
+        /* Opsi pilihan ganda — seluruh kotak bisa diklik, bukan hanya titiknya */
+        .quiz-option {
+            display: flex;
+            align-items: center;
+            padding: 0.7rem 0.9rem;
+            margin-bottom: 0.5rem;
+            border: 1px solid #dee2e6;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: background-color 0.15s ease, border-color 0.15s ease;
+        }
+
+        .quiz-option:hover {
+            background-color: #f1f3f5;
+        }
+
+        .quiz-option:has(input:checked) {
+            background-color: rgba(13, 110, 253, 0.08);
+            border-color: #0d6efd;
+        }
+
+        .quiz-option .form-check-input {
+            flex-shrink: 0;
+            margin: 0 0.6rem 0 0;
+            cursor: pointer;
+        }
+
         .content-item {
             transition: all 0.2s;
         }
@@ -279,6 +306,34 @@
 
         .content-item.content-locked:hover {
             background-color: #f1f3f5;
+        }
+
+        /* Navigasi sidebar, tombol kembali & ikon profil dikunci selama kuis integritas */
+        body.quiz-nav-locked .content-item,
+        body.quiz-nav-locked .quiz-back-btn {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Tombol accordion modul & menu profil topbar dimatikan total saat terkunci */
+        body.quiz-nav-locked #accordionModules .accordion-button,
+        body.quiz-nav-locked #accordionModulesMobile .accordion-button,
+        body.quiz-nav-locked #topbar-user-menu {
+            pointer-events: none;
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Sidenav utama aplikasi (menu Dashboard, Daftar Kursus, dll.) dikunci saat kuis */
+        body.quiz-nav-locked .sidenav-menu .side-nav-link,
+        body.quiz-nav-locked .sidenav-menu .logo,
+        body.quiz-nav-locked .app-topbar .logo {
+            pointer-events: none;
+            opacity: 0.5;
+        }
+
+        body.quiz-nav-locked .sidenav-menu {
+            cursor: not-allowed;
         }
 
         .bg-soft-primary {
@@ -345,6 +400,7 @@
         let currentContentId = null;
         let currentContentType = null;
         let currentQuizAttemptId = null;
+        let currentQuizKind = null; // 'multiple_choice' | 'essay'
         let integrityState = {
             active: false,
             enabled: false,
@@ -352,7 +408,14 @@
             maxViolations: 0,
             currentViolations: 0,
             autoSubmitted: false,
+            lastViolationAt: 0,
         };
+        let quizTimer = {
+            interval: null,
+            remaining: 0,
+            active: false,
+        };
+        let quizNavLocked = false; // true selama kuis integritas berlangsung
 
         function escapeHtml(text) {
             const div = document.createElement('div');
@@ -362,6 +425,9 @@
 
         function resetIntegrityState() {
             currentQuizAttemptId = null;
+            currentQuizKind = null;
+            stopQuizTimer();
+            unlockQuizNavigation();
             integrityState = {
                 active: false,
                 enabled: false,
@@ -369,7 +435,86 @@
                 maxViolations: 0,
                 currentViolations: 0,
                 autoSubmitted: false,
+                lastViolationAt: 0,
             };
+        }
+
+        // ── Countdown timer batas waktu kuis ───────────────────────────────────
+        function timerBoxHtml(integrity) {
+            if (!integrity || !integrity.time_limit_minutes) return '';
+            return '<div class="alert alert-secondary d-flex align-items-center" id="quiz-timer-box">'
+                + '<i class="ti ti-clock me-2 fs-5"></i>'
+                + '<strong>Sisa Waktu: <span id="quiz-timer">--:--</span></strong>'
+                + '</div>';
+        }
+
+        function renderTimerDisplay() {
+            const el = document.getElementById('quiz-timer');
+            if (!el) return;
+            const m = Math.floor(quizTimer.remaining / 60);
+            const s = quizTimer.remaining % 60;
+            el.textContent = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+
+            const box = document.getElementById('quiz-timer-box');
+            if (box) {
+                box.classList.remove('alert-secondary', 'alert-warning', 'alert-danger');
+                if (quizTimer.remaining <= 30) box.classList.add('alert-danger');
+                else if (quizTimer.remaining <= 120) box.classList.add('alert-warning');
+                else box.classList.add('alert-secondary');
+            }
+        }
+
+        function startQuizTimer(timeLimitMinutes, elapsedSeconds) {
+            stopQuizTimer();
+            if (!timeLimitMinutes || timeLimitMinutes < 1) return;
+
+            quizTimer.remaining = Math.max(0, timeLimitMinutes * 60 - (elapsedSeconds || 0));
+            quizTimer.active = true;
+            renderTimerDisplay();
+
+            if (quizTimer.remaining <= 0) {
+                autoSubmitOnTimeout();
+                return;
+            }
+
+            quizTimer.interval = setInterval(function() {
+                quizTimer.remaining--;
+                if (quizTimer.remaining <= 0) {
+                    quizTimer.remaining = 0;
+                    renderTimerDisplay();
+                    stopQuizTimer();
+                    autoSubmitOnTimeout();
+                    return;
+                }
+                renderTimerDisplay();
+            }, 1000);
+        }
+
+        function stopQuizTimer() {
+            if (quizTimer.interval) {
+                clearInterval(quizTimer.interval);
+                quizTimer.interval = null;
+            }
+            quizTimer.active = false;
+        }
+
+        function autoSubmitOnTimeout() {
+            if (!currentContentId || integrityState.autoSubmitted) return;
+            stopIntegrityMonitoring();
+
+            Swal.fire({
+                icon: 'warning',
+                title: 'Waktu Habis',
+                text: 'Waktu pengerjaan kuis telah habis. Jawaban Anda dikirim otomatis.',
+                timer: 2500,
+                showConfirmButton: false,
+            });
+
+            if (currentQuizKind === 'essay') {
+                submitEssay(null, currentContentId);
+            } else {
+                submitQuiz(null, currentContentId);
+            }
         }
 
         function updateViolationCounter() {
@@ -390,9 +535,32 @@
             return Promise.reject();
         }
 
+        // ── Kunci navigasi selama kuis integritas berlangsung ──────────────────
+        // Mencegah peserta berpindah materi lewat sidebar atau keluar lewat tombol
+        // "Kembali"/"Sebelumnya" sebelum kuis selesai dikirim.
+        function quizNavBlockedNotice() {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Navigasi Dikunci',
+                text: 'Selesaikan dan kirim kuis ini terlebih dahulu sebelum berpindah materi atau keluar.',
+                confirmButtonColor: '#0d6efd',
+            });
+        }
+
+        function lockQuizNavigation() {
+            quizNavLocked = true;
+            document.body.classList.add('quiz-nav-locked');
+        }
+
+        function unlockQuizNavigation() {
+            quizNavLocked = false;
+            document.body.classList.remove('quiz-nav-locked');
+        }
+
         function startIntegrityMonitoring() {
             if (!integrityState.enabled) return;
             integrityState.active = true;
+            lockQuizNavigation();
 
             document.addEventListener('visibilitychange', handleVisibilityViolation);
             window.addEventListener('blur', handleWindowBlurViolation);
@@ -401,6 +569,7 @@
 
         function stopIntegrityMonitoring() {
             integrityState.active = false;
+            unlockQuizNavigation();
             document.removeEventListener('visibilitychange', handleVisibilityViolation);
             window.removeEventListener('blur', handleWindowBlurViolation);
             document.removeEventListener('fullscreenchange', handleFullscreenViolation);
@@ -428,6 +597,12 @@
 
         function logIntegrityViolation(type) {
             if (!currentQuizAttemptId) return;
+
+            // Debounce: satu perpindahan tab memicu event visibilitychange + window blur
+            // hampir bersamaan — abaikan event kedua agar tidak dihitung dua kali.
+            const now = Date.now();
+            if (now - integrityState.lastViolationAt < 1500) return;
+            integrityState.lastViolationAt = now;
 
             $.ajax({
                 url: '/user/daftar-kursus/{{ $kursus->id }}/quiz/' + currentContentId + '/integrity-log',
@@ -671,23 +846,26 @@
                 require_fullscreen: false,
                 max_violations: 0
             };
+            currentQuizKind = 'multiple_choice';
 
             let html = '<div class="quiz-wrapper">';
             html += '<h3 class="mb-4">' + escapeHtml(data.title || 'Quiz') + '</h3>';
+            html += timerBoxHtml(integrity);
             html += '<div class="alert alert-info"><i class="ti ti-info-circle"></i> Quiz ini terdiri dari ' + data
                 .questions.length + ' pertanyaan. Minimal nilai 70% untuk lulus.</div>';
 
             if (integrity.enabled) {
                 html += '<div class="card border-warning mb-3" id="integrity-rules-card"><div class="card-body">';
-                html += '<h5 class="mb-3"><i class="ti ti-shield-lock me-2"></i>Quiz Integrity Mode</h5>';
+                html += '<h5 class="mb-3"><i class="ti ti-shield-lock me-2"></i>Mode Integritas Kuis</h5>';
                 html += '<ul class="mb-3">';
-                html += '<li>Perpindahan tab akan dipantau.</li>';
-                html += '<li>Kehilangan fokus browser akan dipantau.</li>';
+                html += '<li>Navigasi dikunci selama kuis berlangsung — sidebar, menu, dan tombol kembali tidak dapat ditekan sampai kuis dikumpulkan.</li>';
+                html += '<li>Perpindahan tab atau membuka aplikasi lain akan terdeteksi dan dicatat.</li>';
+                html += '<li>Browser yang kehilangan fokus akan terdeteksi.</li>';
                 if (integrity.require_fullscreen) {
-                    html += '<li>Fullscreen wajib selama kuis berlangsung.</li>';
+                    html += '<li>Wajib mode layar penuh (fullscreen) selama kuis berlangsung.</li>';
                 }
-                html += '<li>Pelanggaran akan dihitung dan disimpan.</li>';
-                html += '<li>Kuis dapat otomatis dikirim jika pelanggaran mencapai batas.</li>';
+                html += '<li>Setiap pelanggaran dihitung dan disimpan.</li>';
+                html += '<li>Kuis dikirim otomatis bila pelanggaran mencapai batas maksimal.</li>';
                 html += '</ul>';
                 html += '<p class="mb-3" id="integrity-counter">Pelanggaran: 0/' + integrity.max_violations + '</p>';
                 html +=
@@ -705,12 +883,11 @@
                     escapeHtml(question.question) + '</h6>';
 
                 question.options.forEach(function(option) {
-                    html += '<div class="form-check mb-2">';
+                    html += '<label class="quiz-option">';
                     html += '<input class="form-check-input" type="radio" name="question_' + question.id +
-                        '" id="option_' + option.id + '" value="' + option.id + '" required>';
-                    html += '<label class="form-check-label" for="option_' + option.id + '">' + escapeHtml(
-                        option.option_text) + '</label>';
-                    html += '</div>';
+                        '" value="' + option.id + '" required>';
+                    html += '<span>' + escapeHtml(option.option_text) + '</span>';
+                    html += '</label>';
                 });
 
                 html += '</div></div>';
@@ -739,21 +916,25 @@
         }
 
         function startQuizWithIntegrity(contentId, requireFullscreen, maxViolations) {
-            startQuizAttempt(contentId, true).then(function() {
-                integrityState.requireFullscreen = !!requireFullscreen;
-                integrityState.maxViolations = maxViolations || 3;
+            integrityState.requireFullscreen = !!requireFullscreen;
+            integrityState.maxViolations = maxViolations || 3;
 
-                requestFullscreenMode().then(function() {
+            // Minta fullscreen LEBIH DULU — selagi masih dalam konteks gesture klik
+            // tombol. Jika menunggu AJAX selesai, izin gesture bisa kedaluwarsa
+            // sehingga browser menolak permintaan fullscreen. Attempt baru dibuat
+            // setelah fullscreen disetujui agar tidak ada attempt "menggantung".
+            requestFullscreenMode().then(function() {
+                startQuizAttempt(contentId, true).then(function() {
                     $('#integrity-rules-card').hide();
                     $('#quiz-form-wrapper').show();
                     startIntegrityMonitoring();
                     updateViolationCounter();
-                }).catch(function() {
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'Fullscreen Diperlukan',
-                        text: 'Silakan izinkan mode fullscreen untuk memulai kuis ini.'
-                    });
+                });
+            }).catch(function() {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Fullscreen Diperlukan',
+                    text: 'Silakan izinkan mode fullscreen untuk memulai kuis ini.'
                 });
             });
         }
@@ -767,10 +948,23 @@
                 },
                 success: function(response) {
                     currentQuizAttemptId = response.attempt_id;
+                    // Kuis biasa: form langsung tampil, jadi kunci navigasi sekarang.
+                    // Kuis integrity: penguncian ditangani startIntegrityMonitoring()
+                    // setelah form tampil — agar pengguna tidak terkunci di kartu aturan
+                    // bila permintaan fullscreen gagal/ditolak.
+                    if (!integrityEnabled) {
+                        lockQuizNavigation();
+                    }
                     integrityState.currentViolations = response.violation_count || 0;
                     integrityState.enabled = integrityEnabled;
                     integrityState.maxViolations = response.integrity_settings?.max_violations || integrityState.maxViolations;
                     integrityState.requireFullscreen = response.integrity_settings?.require_fullscreen || integrityState.requireFullscreen;
+
+                    // Mulai countdown jika kuis punya batas waktu
+                    const timeLimit = response.integrity_settings?.time_limit_minutes;
+                    if (timeLimit) {
+                        startQuizTimer(timeLimit, response.elapsed_seconds || 0);
+                    }
                 },
                 error: function(xhr) {
                     const msg = (xhr.responseJSON && xhr.responseJSON.error)
@@ -787,9 +981,11 @@
 
         function renderEssayForm(data) {
             const integrity = data.integrity_settings || { enabled: false, require_fullscreen: false, max_violations: 0 };
+            currentQuizKind = 'essay';
 
             let html = '<div class="quiz-wrapper">';
             html += '<h3 class="mb-4">' + escapeHtml(data.title || 'Esai') + '</h3>';
+            html += timerBoxHtml(integrity);
             const isManualGrading = data.grading_type === 'manual';
             const gradingNote = isManualGrading
                 ? 'Jawab pertanyaan esai berikut. Jawaban Anda akan dinilai oleh admin dalam 24 jam.'
@@ -798,10 +994,15 @@
 
             if (integrity.enabled) {
                 html += '<div class="card border-warning mb-3" id="integrity-rules-card"><div class="card-body">';
-                html += '<h5 class="mb-3"><i class="ti ti-shield-lock me-2"></i>Quiz Integrity Mode</h5>';
-                html += '<ul class="mb-3"><li>Perpindahan tab akan dipantau.</li><li>Kehilangan fokus browser akan dipantau.</li>';
-                if (integrity.require_fullscreen) html += '<li>Fullscreen wajib selama kuis berlangsung.</li>';
-                html += '<li>Kuis dapat otomatis dikirim jika pelanggaran mencapai batas.</li></ul>';
+                html += '<h5 class="mb-3"><i class="ti ti-shield-lock me-2"></i>Mode Integritas Kuis</h5>';
+                html += '<ul class="mb-3">';
+                html += '<li>Navigasi dikunci selama kuis berlangsung — sidebar, menu, dan tombol kembali tidak dapat ditekan sampai kuis dikumpulkan.</li>';
+                html += '<li>Perpindahan tab atau membuka aplikasi lain akan terdeteksi dan dicatat.</li>';
+                html += '<li>Browser yang kehilangan fokus akan terdeteksi.</li>';
+                if (integrity.require_fullscreen) html += '<li>Wajib mode layar penuh (fullscreen) selama kuis berlangsung.</li>';
+                html += '<li>Setiap pelanggaran dihitung dan disimpan.</li>';
+                html += '<li>Kuis dikirim otomatis bila pelanggaran mencapai batas maksimal.</li>';
+                html += '</ul>';
                 html += '<p class="mb-3" id="integrity-counter">Pelanggaran: 0/' + integrity.max_violations + '</p>';
                 html += '<button class="btn btn-warning" type="button" onclick="startQuizWithIntegrity(\'' + data.id + '\', ' + integrity.require_fullscreen + ', ' + integrity.max_violations + ')">Saya Mengerti & Mulai Kuis</button>';
                 html += '</div></div>';
@@ -841,8 +1042,11 @@
         }
 
         function submitEssay(event, contentId) {
-            event.preventDefault();
+            if (event) event.preventDefault();
+            stopIntegrityMonitoring();
+            stopQuizTimer();
             const form = document.getElementById('quiz-form');
+            if (!form) return;
             const formData = new FormData(form);
             const answers = {};
             for (const [key, val] of formData.entries()) {
@@ -1037,10 +1241,14 @@
         }
 
         function submitQuiz(event, contentId) {
-            event.preventDefault();
+            if (event) event.preventDefault();
             stopIntegrityMonitoring();
+            stopQuizTimer();
 
-            const formData = new FormData(event.target);
+            const form = document.getElementById('quiz-form');
+            if (!form) return;
+
+            const formData = new FormData(form);
             const answers = {};
 
             for (let [key, value] of formData.entries()) {
@@ -1076,6 +1284,7 @@
         function showQuizResult(result) {
             integrityState.autoSubmitted = !!result.is_auto_submitted;
             stopIntegrityMonitoring();
+            stopQuizTimer();
 
             let html = '<div class="text-center py-5">';
             html += result.is_passed ? '<i class="ti ti-circle-check text-success" style="font-size: 80px;"></i>' :
@@ -1333,6 +1542,10 @@
         }
 
         function previousContent() {
+            if (quizNavLocked) {
+                quizNavBlockedNotice();
+                return;
+            }
             const currentItem = getPrimaryContentItem(currentContentId);
             const prevItem = getPreviousContentItem(currentItem);
 
@@ -1362,6 +1575,11 @@
             $(document).on('click', '.content-item', function(e) {
                 e.preventDefault();
 
+                if (quizNavLocked) {
+                    quizNavBlockedNotice();
+                    return false;
+                }
+
                 if ($(this).attr('data-content-locked') === '1') {
                     showLockedContentMessage(this);
                     return false;
@@ -1372,6 +1590,24 @@
                 loadContent(contentId, contentType);
                 closeMobileSidebarFromItem(this);
                 return false;
+            });
+
+            // Tombol "Kembali" dikunci selama kuis integritas berlangsung
+            $(document).on('click', '.quiz-back-btn', function(e) {
+                if (quizNavLocked) {
+                    e.preventDefault();
+                    quizNavBlockedNotice();
+                    return false;
+                }
+            });
+
+            // Sidenav utama aplikasi (menu Dashboard, dll.) — tampilkan peringatan saat terkunci.
+            // Klik tetap diblokir lewat CSS (pointer-events:none pada link), handler ini hanya
+            // untuk memunculkan notifikasi karena klik jatuh ke kontainer sidenav.
+            $(document).on('click', '.sidenav-menu', function() {
+                if (quizNavLocked) {
+                    quizNavBlockedNotice();
+                }
             });
 
             const urlParams = new URLSearchParams(window.location.search);

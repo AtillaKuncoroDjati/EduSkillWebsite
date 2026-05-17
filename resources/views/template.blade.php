@@ -402,6 +402,21 @@
     @stack('scripts')
     @include('layout.crisp')
 
+    @if (auth()->check() && auth()->user()->permission === 'admin')
+        <script>
+            window.AdminNotifConfig = {
+                pollUrl: '{{ route('admin.notifications.poll') }}',
+                readUrlBase: '{{ url('admin/notifications') }}',
+                readAllUrl: '{{ route('admin.notifications.readAll') }}',
+                csrf: '{{ csrf_token() }}',
+                soundAlarm: '{{ asset('assets/sounds/alarm.mp3') }}',
+                soundNilai: '{{ asset('assets/sounds/notification_nilai.mp3') }}',
+                pollInterval: 10000
+            };
+        </script>
+        <script src="{{ asset('assets/js/admin-notifications.js') }}?v=2"></script>
+    @endif
+
     <script>
         $(document).ready(function() {
             @if (\Illuminate\Support\Facades\Session::get('failed_message'))

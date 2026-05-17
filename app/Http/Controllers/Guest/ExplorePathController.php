@@ -5,23 +5,24 @@ namespace App\Http\Controllers\Guest;
 use App\Http\Controllers\Controller;
 use App\Models\Kursus;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class ExplorePathController extends Controller
 {
-    private const OPTION_TO_CATEGORY = [
-        '1' => 'programming',
-        '2' => 'design',
-        '3' => 'marketing',
-        '4' => 'business',
-        '5' => 'cybersecurity',
-    ];
-
     private const CATEGORY_LABELS = [
         'programming' => 'Programming',
         'design' => 'Design',
         'marketing' => 'Marketing',
         'business' => 'Business',
         'cybersecurity' => 'Cybersecurity',
+    ];
+
+    private const CATEGORY_ICONS = [
+        'programming' => 'ti-code',
+        'design' => 'ti-palette',
+        'marketing' => 'ti-speakerphone',
+        'business' => 'ti-briefcase',
+        'cybersecurity' => 'ti-shield-lock',
     ];
 
     private const CATEGORY_EXPLANATIONS = [
@@ -34,46 +35,86 @@ class ExplorePathController extends Controller
 
     public function landing()
     {
-        return view('public.landing');
+        return view('public.landing', [
+            'categoryLabels' => self::CATEGORY_LABELS,
+            'categoryIcons' => self::CATEGORY_ICONS,
+        ]);
     }
 
     public function questionnaire()
     {
+        // Acak urutan opsi tiap soal agar kuesioner tidak mudah ditebak —
+        // sebelumnya kategori selalu tampil dengan urutan yang sama.
+        $questions = array_map(function ($question) {
+            $question['options'] = $this->shuffleAssoc($question['options']);
+            return $question;
+        }, $this->questions());
+
         return view('public.explore-path', [
-            'questions' => $this->questions(),
+            'questions' => $questions,
             'categoryLabels' => self::CATEGORY_LABELS,
         ]);
     }
 
     public function submit(Request $request)
     {
+        // Nilai jawaban sekarang berupa kunci kategori (bukan nomor urut opsi),
+        // sehingga aman walau urutan opsi diacak.
         $validated = $request->validate([
             'answers' => ['required', 'array', 'size:5'],
-            'answers.*' => ['required', 'in:1,2,3,4,5'],
+            'answers.*' => ['required', Rule::in(array_keys(self::CATEGORY_LABELS))],
         ]);
 
+        // Hitung berapa kali tiap kategori dipilih
         $scores = collect(array_keys(self::CATEGORY_LABELS))
             ->mapWithKeys(fn($category) => [$category => 0])
             ->all();
 
-        foreach ($validated['answers'] as $selectedOption) {
-            $category = self::OPTION_TO_CATEGORY[(string) $selectedOption] ?? null;
-            if ($category !== null) {
+        foreach ($validated['answers'] as $category) {
+            if (isset($scores[$category])) {
                 $scores[$category]++;
             }
         }
 
-        arsort($scores);
-        $categories = array_keys($scores);
-        $topCategory = $categories[0];
-        $topScore = $scores[$topCategory];
+        // Tentukan kategori teratas. Bila skor seri, tie-break secara adil
+        // berdasarkan jawaban pengguna sendiri — bukan urutan kategori bawaan
+        // sistem — supaya hasil tidak bias ke kategori tertentu:
+        //   1. utamakan jawaban soal terakhir (pilihan paling konkret),
+        //   2. jika tidak termasuk yang seri, ambil kategori seri yang
+        //      paling awal dipilih pengguna.
+        $maxScore = max($scores);
+        $tiedTop = array_keys(array_filter($scores, fn($s) => $s === $maxScore));
+
+        if (count($tiedTop) === 1) {
+            $topCategory = $tiedTop[0];
+        } else {
+            $answers = array_values($validated['answers']);
+            $lastAnswer = end($answers);
+
+            if (in_array($lastAnswer, $tiedTop, true)) {
+                $topCategory = $lastAnswer;
+            } else {
+                $topCategory = $tiedTop[0];
+                foreach ($answers as $answer) {
+                    if (in_array($answer, $tiedTop, true)) {
+                        $topCategory = $answer;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Alternatif: kategori dengan skor tertinggi kedua, hanya bila cukup
+        // dekat dengan kategori utama (selisih <= 1).
+        $remaining = $scores;
+        unset($remaining[$topCategory]);
+        arsort($remaining);
 
         $alternativeCategory = null;
-        if (isset($categories[1])) {
-            $secondCategory = $categories[1];
-            $secondScore = $scores[$secondCategory];
-
-            if ($secondScore > 0 && ($topScore - $secondScore) <= 1) {
+        if (!empty($remaining)) {
+            $secondCategory = array_key_first($remaining);
+            $secondScore = $remaining[$secondCategory];
+            if ($secondScore > 0 && ($maxScore - $secondScore) <= 1) {
                 $alternativeCategory = $secondCategory;
             }
         }
@@ -84,6 +125,9 @@ class ExplorePathController extends Controller
             ->latest()
             ->limit(3)
             ->get(['id', 'title', 'difficulty', 'short_description', 'thumbnail']);
+
+        // Urutkan skor menurun agar rincian di halaman hasil tampil rapi
+        arsort($scores);
 
         session([
             'explore_path_result' => [
@@ -109,7 +153,24 @@ class ExplorePathController extends Controller
         return view('public.explore-result', [
             'result' => $result,
             'categoryLabels' => self::CATEGORY_LABELS,
+            'categoryIcons' => self::CATEGORY_ICONS,
         ]);
+    }
+
+    /**
+     * Acak urutan elemen array asosiatif tanpa kehilangan pasangan key => value.
+     */
+    private function shuffleAssoc(array $items): array
+    {
+        $keys = array_keys($items);
+        shuffle($keys);
+
+        $shuffled = [];
+        foreach ($keys as $key) {
+            $shuffled[$key] = $items[$key];
+        }
+
+        return $shuffled;
     }
 
     private function questions(): array

@@ -63,6 +63,108 @@
         [data-bs-theme="dark"] .course-thumb {
             background-color: rgba(54, 59, 68, .95);
         }
+
+        .recommended-box {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1.25rem 1.4rem;
+            border-radius: 1rem;
+            background: linear-gradient(135deg, #4f46e5, #6366f1);
+            color: #fff;
+            text-align: left;
+        }
+
+        .recommended-icon {
+            flex-shrink: 0;
+            width: 58px;
+            height: 58px;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, .18);
+            font-size: 1.9rem;
+        }
+
+        .recommended-eyebrow {
+            display: block;
+            font-size: .72rem;
+            font-weight: 700;
+            letter-spacing: .07em;
+            text-transform: uppercase;
+            opacity: .85;
+        }
+
+        .score-row {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            margin-bottom: .55rem;
+        }
+
+        .score-label {
+            flex: 0 0 132px;
+            font-size: .82rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: .35rem;
+        }
+
+        .score-label i {
+            color: #4f46e5;
+        }
+
+        .score-track {
+            flex: 1;
+            height: 10px;
+            border-radius: 999px;
+            background: #eceef3;
+            overflow: hidden;
+        }
+
+        .score-fill {
+            height: 100%;
+            border-radius: 999px;
+            background: #c7cbd4;
+            transition: width .4s ease;
+        }
+
+        .score-fill.is-top {
+            background: linear-gradient(90deg, #4f46e5, #6366f1);
+        }
+
+        .score-value {
+            flex: 0 0 32px;
+            text-align: right;
+            font-size: .78rem;
+            font-weight: 700;
+            color: #6b7280;
+        }
+
+        @media (max-width: 480px) {
+            .score-label {
+                flex-basis: 104px;
+                font-size: .75rem;
+            }
+        }
+
+        [data-bs-theme="dark"] .score-track {
+            background: rgba(255, 255, 255, .08);
+        }
+
+        [data-bs-theme="dark"] .score-fill {
+            background: rgba(148, 163, 184, .5);
+        }
+
+        [data-bs-theme="dark"] .score-label i {
+            color: #a5b4fc;
+        }
+
+        [data-bs-theme="dark"] .score-value {
+            color: #9ca3af;
+        }
     </style>
 </head>
 
@@ -80,20 +182,45 @@
             <div class="row justify-content-center">
                 <div class="col-lg-8">
                     <div class="card p-4 p-md-5 result-card">
-                        <h3 class="fw-bold mb-3">Rekomendasi Belajarmu</h3>
+                        <h3 class="fw-bold mb-1">Rekomendasi Belajarmu</h3>
+                        <p class="text-muted mb-4">Disusun dari jawaban kuesioner minatmu.</p>
 
-                        <div class="alert alert-primary mb-3">
-                            <p class="mb-1">Kategori yang paling cocok:</p>
-                            <h4 class="mb-0 fw-bold">{{ $categoryLabels[$result['recommended_category']] ?? '-' }}</h4>
+                        <div class="recommended-box mb-4">
+                            <div class="recommended-icon">
+                                <i class="ti {{ $categoryIcons[$result['recommended_category']] ?? 'ti-compass' }}"></i>
+                            </div>
+                            <div>
+                                <span class="recommended-eyebrow">Kategori paling cocok</span>
+                                <h3 class="fw-bold mb-1">{{ $categoryLabels[$result['recommended_category']] ?? '-' }}</h3>
+                                <p class="mb-0 small">{{ $result['explanation'] }}</p>
+                            </div>
                         </div>
 
-                        <p class="text-muted mb-2">{{ $result['explanation'] }}</p>
-
                         @if (!empty($result['alternative_category']))
-                            <p class="mb-3">
-                                Alternatif rekomendasi:
+                            <p class="mb-4">
+                                <i class="ti ti-arrow-badge-right text-primary me-1"></i>
+                                Alternatif yang juga cocok:
                                 <strong>{{ $categoryLabels[$result['alternative_category']] ?? '-' }}</strong>
                             </p>
+                        @endif
+
+                        @if (!empty($result['scores']))
+                            <h5 class="mb-3">Rincian Minatmu</h5>
+                            <div class="mb-4">
+                                @php $topScore = max(1, max($result['scores'])); @endphp
+                                @foreach ($result['scores'] as $cat => $score)
+                                    <div class="score-row">
+                                        <div class="score-label">
+                                            <i class="ti {{ $categoryIcons[$cat] ?? 'ti-point' }}"></i>{{ $categoryLabels[$cat] ?? $cat }}
+                                        </div>
+                                        <div class="score-track">
+                                            <div class="score-fill {{ $cat === $result['recommended_category'] ? 'is-top' : '' }}"
+                                                style="width: {{ round(($score / $topScore) * 100) }}%"></div>
+                                        </div>
+                                        <div class="score-value">{{ $score }}/5</div>
+                                    </div>
+                                @endforeach
+                            </div>
                         @endif
 
                         @if (!empty($result['suggested_courses']))
@@ -125,6 +252,12 @@
                                         </div>
                                     @endforeach
                                 </div>
+                            </div>
+                        @else
+                            <div class="alert alert-light border d-flex align-items-start gap-2 mb-4">
+                                <i class="ti ti-info-circle text-primary fs-5"></i>
+                                <span>Belum ada kursus aktif untuk kategori ini. Daftar sekarang &mdash; kami akan
+                                    memberitahumu begitu kursus kategori ini tersedia.</span>
                             </div>
                         @endif
 

@@ -259,15 +259,15 @@
                                             <span class="question-number">{{ $index + 1 }}</span>
                                             <span>{{ $question['text'] }}</span>
                                         </h5>
-                                        @foreach ($question['options'] as $option)
-                                            <label class="mb-2 option-item" for="q{{ $index }}_{{ $loop->index }}">
+                                        @foreach ($question['options'] as $categoryKey => $optionText)
+                                            <label class="mb-2 option-item" for="q{{ $index }}_{{ $categoryKey }}">
                                                 <input type="radio"
                                                     class="option-radio"
                                                     name="answers[{{ $index }}]"
-                                                    id="q{{ $index }}_{{ $loop->index }}"
-                                                    value="{{ $loop->iteration }}"
-                                                    {{ old('answers.' . $index) == (string) $loop->iteration ? 'checked' : '' }} required>
-                                                <span class="option-label">{{ $option }}</span>
+                                                    id="q{{ $index }}_{{ $categoryKey }}"
+                                                    value="{{ $categoryKey }}"
+                                                    {{ old('answers.' . $index) === $categoryKey ? 'checked' : '' }} required>
+                                                <span class="option-label">{{ $optionText }}</span>
                                             </label>
                                         @endforeach
                                     </div>

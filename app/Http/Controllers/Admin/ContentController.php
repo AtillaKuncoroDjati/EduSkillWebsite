@@ -151,6 +151,7 @@ class ContentController extends Controller
             'integrity_mode_enabled' => 'nullable|boolean',
             'require_fullscreen'     => 'nullable|boolean',
             'max_violations'         => 'nullable|integer|min:1|max:20',
+            'time_limit_minutes'     => 'nullable|integer|min:1|max:300',
             'ai_question_count'      => 'nullable|integer|min:1|max:20',
             'pdf_file'               => 'nullable|file|mimes:pdf|max:20480',
         ]);
@@ -196,6 +197,7 @@ class ContentController extends Controller
             'integrity_mode_enabled' => $type === 'quiz' ? (bool) $request->integrity_mode_enabled : false,
             'require_fullscreen'     => $type === 'quiz' ? (bool) $request->require_fullscreen : false,
             'max_violations'         => $type === 'quiz' ? (int) ($request->max_violations ?? 3) : 3,
+            'time_limit_minutes'     => ($type === 'quiz' && $request->filled('time_limit_minutes')) ? (int) $request->time_limit_minutes : null,
             'is_ai_generated'        => $isAiGenerated,
             'ai_question_count'      => $isAiGenerated ? (int) ($request->ai_question_count ?? 5) : 5,
             'order'                  => $order,
@@ -242,6 +244,7 @@ class ContentController extends Controller
             'integrity_mode_enabled' => 'nullable|boolean',
             'require_fullscreen'     => 'nullable|boolean',
             'max_violations'         => 'nullable|integer|min:1|max:20',
+            'time_limit_minutes'     => 'nullable|integer|min:1|max:300',
             'ai_question_count'      => 'nullable|integer|min:1|max:20',
             'pdf_file'               => 'nullable|file|mimes:pdf|max:20480',
         ]);
@@ -296,6 +299,7 @@ class ContentController extends Controller
             'integrity_mode_enabled' => $type === 'quiz' ? (bool) $request->integrity_mode_enabled : false,
             'require_fullscreen'     => $type === 'quiz' ? (bool) $request->require_fullscreen : false,
             'max_violations'         => $type === 'quiz' ? (int) ($request->max_violations ?? 3) : 3,
+            'time_limit_minutes'     => ($type === 'quiz' && $request->filled('time_limit_minutes')) ? (int) $request->time_limit_minutes : null,
             'is_ai_generated'        => $isAiGenerated,
             'ai_question_count'      => $isAiGenerated ? (int) ($request->ai_question_count ?? 5) : 5,
         ]);

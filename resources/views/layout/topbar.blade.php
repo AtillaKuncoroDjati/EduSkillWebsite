@@ -59,8 +59,48 @@
                 </button>
             </div>
 
+            <!-- Notifikasi Admin -->
+            @if (auth()->check() && auth()->user()->permission === 'admin')
+                <div class="topbar-item">
+                    <div class="dropdown">
+                        <button class="topbar-link btn btn-outline-primary btn-icon position-relative" type="button"
+                            id="admin-notif-bell" data-bs-toggle="dropdown" data-bs-offset="0,22"
+                            data-bs-auto-close="outside" aria-expanded="false">
+                            <i class="ti ti-bell fs-22"></i>
+                            <span class="badge bg-danger rounded-pill position-absolute d-none" id="admin-notif-badge"
+                                style="top:2px; right:2px; font-size:10px;">0</span>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end p-0" style="width:340px;" id="admin-notif-menu">
+                            <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
+                                <h6 class="m-0">Notifikasi</h6>
+                                <a href="#" class="small text-primary" id="admin-notif-readall">Tandai dibaca</a>
+                            </div>
+                            <div id="admin-notif-list" style="max-height:320px; overflow-y:auto;">
+                                <div class="text-center text-muted py-4" id="admin-notif-empty">
+                                    <i class="ti ti-bell-off fs-2 d-block mb-1"></i>Belum ada notifikasi
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top bg-light">
+                                <div class="form-check form-switch m-0">
+                                    <input class="form-check-input" type="checkbox" id="admin-notif-sound-toggle" checked>
+                                    <label class="form-check-label small" for="admin-notif-sound-toggle">
+                                        <i class="ti ti-volume"></i> Suara
+                                    </label>
+                                </div>
+                                <div class="form-check form-switch m-0">
+                                    <input class="form-check-input" type="checkbox" id="admin-notif-popup-toggle" checked>
+                                    <label class="form-check-label small" for="admin-notif-popup-toggle">
+                                        <i class="ti ti-message-2"></i> Popup
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
             <!-- User Dropdown -->
-            <div class="topbar-item">
+            <div class="topbar-item" id="topbar-user-menu">
                 <div class="dropdown">
                     <a class="topbar-link btn btn-outline-primary dropdown-toggle drop-arrow-none"
                         data-bs-toggle="dropdown" data-bs-offset="0,22" type="button" aria-haspopup="false"

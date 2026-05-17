@@ -15,6 +15,12 @@ class KeystrokeAnalysisService
     // How many sessions needed before we trust the baseline enough to flag
     const MIN_SESSIONS_FOR_BASELINE = 2;
 
+    // Minimal jumlah pengguna lain agar baseline global layak dipakai sebagai fallback
+    const MIN_GLOBAL_USERS = 2;
+
+    // Faktor redam skor saat memakai baseline global (lebih berisik dari baseline personal)
+    const GLOBAL_DAMPING = 0.7;
+
     // Z-score thresholds → anomaly score bands
     const THRESHOLD_SUSPECT = 70;  // score >= 70 → suspect
     const THRESHOLD_CAUTION = 40;  // score >= 40 → caution
@@ -58,23 +64,98 @@ class KeystrokeAnalysisService
             return;
         }
 
-        // 4. Pull or build baseline
+        // 4. Ambil baseline personal pengguna
         $baseline = KeystrokeBaseline::where('user_id', $userId)
             ->where('device_type', $deviceType)
             ->first();
 
-        // 5. Compute anomaly score if we have a mature baseline
+        // 5. Tentukan baseline pembanding untuk scoring:
+        //    - baseline personal jika sudah matang, ATAU
+        //    - baseline global (rata-rata pengguna lain) sebagai fallback cold-start
+        //      sehingga 2 attempt pertama tetap terproteksi.
+        $score        = null;
+        $isGlobalBase = false;
+
         if ($baseline && $baseline->sample_sessions >= self::MIN_SESSIONS_FOR_BASELINE) {
             $score = $this->computeAnomalyScore($keystrokeData, $baseline);
-            $flag  = $this->resolveFlag($score);
+        } else {
+            $globalBaseline = $this->getGlobalBaseline($deviceType, $userId);
+            if ($globalBaseline) {
+                // Baseline global lebih berisik → redam skor agar tidak banyak false positive
+                $score        = round($this->computeAnomalyScore($keystrokeData, $globalBaseline) * self::GLOBAL_DAMPING, 1);
+                $isGlobalBase = true;
+            }
+        }
 
-            $attempt->keystroke_anomaly_score = $score;
-            $attempt->keystroke_flag          = $flag;
+        if ($score !== null) {
+            $keystrokeData['baseline_source']  = $isGlobalBase ? 'global' : 'personal';
+            $attempt->keystroke_data           = $keystrokeData;
+            $attempt->keystroke_anomaly_score  = $score;
+            $attempt->keystroke_flag           = $this->resolveFlag($score);
             $attempt->save();
         }
 
-        // 6. Incorporate this session into the rolling baseline
-        $this->updateBaseline($userId, $deviceType, $keystrokeData, $baseline);
+        // 6. Masukkan sesi ke baseline personal — KECUALI sesi ini sudah terdeteksi
+        //    SUSPECT, agar baseline tidak "keracunan" (poisoned) oleh perilaku abnormal.
+        if ($score === null || $score < self::THRESHOLD_SUSPECT) {
+            $this->updateBaseline($userId, $deviceType, $keystrokeData, $baseline);
+        }
+    }
+
+    /**
+     * Bangun baseline "global" sintetis dari rata-rata seluruh pengguna lain
+     * pada tipe device yang sama. Dipakai sebagai fallback ketika baseline
+     * personal belum matang (mengatasi masalah cold-start 2 attempt pertama).
+     *
+     * Mengembalikan objek KeystrokeBaseline transient (tidak disimpan ke DB),
+     * atau null jika data pengguna lain belum cukup.
+     */
+    private function getGlobalBaseline(string $deviceType, string $excludeUserId): ?KeystrokeBaseline
+    {
+        $rows = KeystrokeBaseline::where('device_type', $deviceType)
+            ->where('sample_sessions', '>=', self::MIN_SESSIONS_FOR_BASELINE)
+            ->where('user_id', '!=', $excludeUserId)
+            ->get();
+
+        if ($rows->count() < self::MIN_GLOBAL_USERS) {
+            return null;
+        }
+
+        $global = new KeystrokeBaseline();
+        $global->device_type     = $deviceType;
+        $global->sample_sessions = $rows->count();
+
+        foreach (['mean_dwell', 'mean_flight', 'mean_speed_cps', 'mean_error_rate'] as $meanCol) {
+            $global->$meanCol = round((float) $rows->avg($meanCol), 3);
+        }
+
+        // Std global = sebaran ANTAR-pengguna pada nilai mean (between-person variance),
+        // di-floor dengan rata-rata std individu agar tidak terlalu sensitif (false positive).
+        foreach (['dwell', 'flight', 'speed_cps'] as $metric) {
+            $between = $this->standardDeviation($rows->pluck('mean_' . $metric)->all());
+            $within  = (float) $rows->avg('std_' . $metric);
+            $global->{'std_' . $metric} = round(max($between, $within), 3);
+        }
+
+        return $global;
+    }
+
+    /**
+     * Standar deviasi populasi dari kumpulan nilai (mengabaikan null).
+     */
+    private function standardDeviation(array $values): float
+    {
+        $values = array_values(array_filter($values, fn($v) => $v !== null));
+        $n = count($values);
+        if ($n < 2) {
+            return 0.0;
+        }
+        $mean = array_sum($values) / $n;
+        $variance = 0.0;
+        foreach ($values as $v) {
+            $variance += ($v - $mean) ** 2;
+        }
+        return sqrt($variance / $n);
     }
 
     /**
