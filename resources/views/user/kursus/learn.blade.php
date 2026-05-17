@@ -442,9 +442,16 @@
         // ── Countdown timer batas waktu kuis ───────────────────────────────────
         function timerBoxHtml(integrity) {
             if (!integrity || !integrity.time_limit_minutes) return '';
+            const mins = integrity.time_limit_minutes;
+            // Tampilkan batas waktu penuh sejak awal agar pengguna tahu durasi
+            // yang diberikan admin sebelum kuis dimulai. Berubah jadi hitung
+            // mundur "Sisa Waktu" begitu kuis berlangsung (startQuizTimer).
+            const initial = (mins < 10 ? '0' : '') + mins + ':00';
             return '<div class="alert alert-secondary d-flex align-items-center" id="quiz-timer-box">'
                 + '<i class="ti ti-clock me-2 fs-5"></i>'
-                + '<strong>Sisa Waktu: <span id="quiz-timer">--:--</span></strong>'
+                + '<strong><span id="quiz-timer-label">Batas Waktu Pengerjaan: </span>'
+                + '<span id="quiz-timer">' + initial + '</span></strong>'
+                + '<span class="ms-2 text-muted small">(' + mins + ' menit)</span>'
                 + '</div>';
         }
 
@@ -470,6 +477,11 @@
 
             quizTimer.remaining = Math.max(0, timeLimitMinutes * 60 - (elapsedSeconds || 0));
             quizTimer.active = true;
+
+            // Kuis sudah berjalan: ubah label dari "Batas Waktu" jadi hitung mundur.
+            const label = document.getElementById('quiz-timer-label');
+            if (label) label.textContent = 'Sisa Waktu: ';
+
             renderTimerDisplay();
 
             if (quizTimer.remaining <= 0) {
@@ -858,6 +870,10 @@
                 html += '<div class="card border-warning mb-3" id="integrity-rules-card"><div class="card-body">';
                 html += '<h5 class="mb-3"><i class="ti ti-shield-lock me-2"></i>Mode Integritas Kuis</h5>';
                 html += '<ul class="mb-3">';
+                if (integrity.time_limit_minutes) {
+                    html += '<li>Anda memiliki waktu <strong>' + integrity.time_limit_minutes +
+                        ' menit</strong> untuk mengerjakan kuis ini. Hitung mundur dimulai saat kuis ditekan.</li>';
+                }
                 html += '<li>Navigasi dikunci selama kuis berlangsung — sidebar, menu, dan tombol kembali tidak dapat ditekan sampai kuis dikumpulkan.</li>';
                 html += '<li>Perpindahan tab atau membuka aplikasi lain akan terdeteksi dan dicatat.</li>';
                 html += '<li>Browser yang kehilangan fokus akan terdeteksi.</li>';
@@ -866,6 +882,9 @@
                 }
                 html += '<li>Setiap pelanggaran dihitung dan disimpan.</li>';
                 html += '<li>Kuis dikirim otomatis bila pelanggaran mencapai batas maksimal.</li>';
+                if (integrity.time_limit_minutes) {
+                    html += '<li>Kuis dikirim otomatis bila waktu pengerjaan habis.</li>';
+                }
                 html += '</ul>';
                 html += '<p class="mb-3" id="integrity-counter">Pelanggaran: 0/' + integrity.max_violations + '</p>';
                 html +=
@@ -996,12 +1015,19 @@
                 html += '<div class="card border-warning mb-3" id="integrity-rules-card"><div class="card-body">';
                 html += '<h5 class="mb-3"><i class="ti ti-shield-lock me-2"></i>Mode Integritas Kuis</h5>';
                 html += '<ul class="mb-3">';
+                if (integrity.time_limit_minutes) {
+                    html += '<li>Anda memiliki waktu <strong>' + integrity.time_limit_minutes +
+                        ' menit</strong> untuk mengerjakan kuis ini. Hitung mundur dimulai saat kuis ditekan.</li>';
+                }
                 html += '<li>Navigasi dikunci selama kuis berlangsung — sidebar, menu, dan tombol kembali tidak dapat ditekan sampai kuis dikumpulkan.</li>';
                 html += '<li>Perpindahan tab atau membuka aplikasi lain akan terdeteksi dan dicatat.</li>';
                 html += '<li>Browser yang kehilangan fokus akan terdeteksi.</li>';
                 if (integrity.require_fullscreen) html += '<li>Wajib mode layar penuh (fullscreen) selama kuis berlangsung.</li>';
                 html += '<li>Setiap pelanggaran dihitung dan disimpan.</li>';
                 html += '<li>Kuis dikirim otomatis bila pelanggaran mencapai batas maksimal.</li>';
+                if (integrity.time_limit_minutes) {
+                    html += '<li>Kuis dikirim otomatis bila waktu pengerjaan habis.</li>';
+                }
                 html += '</ul>';
                 html += '<p class="mb-3" id="integrity-counter">Pelanggaran: 0/' + integrity.max_violations + '</p>';
                 html += '<button class="btn btn-warning" type="button" onclick="startQuizWithIntegrity(\'' + data.id + '\', ' + integrity.require_fullscreen + ', ' + integrity.max_violations + ')">Saya Mengerti & Mulai Kuis</button>';
