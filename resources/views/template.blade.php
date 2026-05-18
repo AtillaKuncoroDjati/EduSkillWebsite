@@ -43,6 +43,8 @@
     <link href="{{ asset('assets/css/icons.min.css') }}" rel="stylesheet" type="text/css" />
     <!-- Plugins css -->
     <link href="{{ asset('assets/plugins/jquery-confirm/jquery-confirm.min.css') }}" rel="stylesheet" />
+    <!-- Responsive (mobile) overrides -->
+    <link href="{{ asset('assets/css/responsive-custom.css') }}" rel="stylesheet" type="text/css" />
     <!-- Custom style -->
     @stack('styles')
 </head>

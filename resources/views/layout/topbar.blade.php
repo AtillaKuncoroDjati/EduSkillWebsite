@@ -3,7 +3,7 @@
         <div class="d-flex align-items-center gap-2">
 
             <!-- Brand Logo -->
-            <a href="index.html" class="logo">
+            <a href="{{ route('user.dashboard') }}" class="logo">
                 <span class="logo-light">
                     <span class="logo-lg">
                         <img src="{{ asset('assets/media/logo/logo.png') }}" alt="logo">
@@ -45,7 +45,7 @@
 
         <div class="d-flex align-items-center gap-2">
             <!-- Button Trigger Customizer Offcanvas -->
-            <div class="topbar-item d-none d-sm-flex">
+            <div class="topbar-item d-flex">
                 <button class="topbar-link btn btn-outline-primary btn-icon" data-bs-toggle="offcanvas"
                     data-bs-target="#theme-settings-offcanvas" type="button">
                     <i class="ti ti-settings fs-22"></i>
@@ -53,7 +53,7 @@
             </div>
 
             <!-- Light/Dark Mode Button -->
-            <div class="topbar-item d-none d-sm-flex">
+            <div class="topbar-item d-flex">
                 <button class="topbar-link btn btn-outline-primary btn-icon" id="light-dark-mode" type="button">
                     <i class="ti ti-moon fs-22"></i>
                 </button>

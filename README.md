@@ -402,6 +402,52 @@ CRISP_ENABLED=false
 CRISP_WEBSITE_ID=
 ```
 
+## Hosting Sementara dengan Cloudflare Tunnel
+
+Cloudflare Tunnel berguna untuk mengetes aplikasi secara online tanpa proses deploy, misalnya menguji tampilan di HP atau membagikan akses ke orang lain. Aplikasi tetap berjalan di komputer lokal, lalu diekspos melalui URL publik sementara.
+
+### Prasyarat
+
+Install `cloudflared` satu kali. Pada Windows:
+
+```bash
+winget install --id Cloudflare.cloudflared
+```
+
+Untuk OS lain, lihat panduan resmi Cloudflare. Setelah install, tutup dan buka kembali terminal atau VS Code agar perintah `cloudflared` dikenali.
+
+Catatan: `app/Http/Middleware/TrustProxies.php` sudah disetel `$proxies = '*'` agar Laravel mengenali HTTPS dari tunnel sehingga aset CSS dan JS tidak terblokir sebagai mixed content.
+
+### Menjalankan
+
+Gunakan dua terminal terpisah.
+
+Terminal 1, jalankan aplikasi:
+
+```bash
+npm run build
+php artisan serve
+```
+
+Terminal 2, jalankan tunnel:
+
+```bash
+cloudflared tunnel --url http://localhost:8000
+```
+
+Cloudflare akan menampilkan URL publik berformat `https://<acak>.trycloudflare.com`. Buka atau bagikan URL tersebut.
+
+### Menghentikan
+
+Tekan `Ctrl+C` pada masing-masing terminal.
+
+### Catatan
+
+- Komputer dan kedua proses harus tetap menyala selama pengetesan.
+- URL berganti setiap `cloudflared` dijalankan ulang.
+- Jalankan `npm run build` lagi setiap ada perubahan aset frontend sebelum mengetes ulang.
+- reCAPTCHA terkunci pada domain tertentu sehingga tidak berfungsi di domain `trycloudflare.com`. Untuk pengetesan via tunnel, kosongkan sementara `RECAPTCHA_SITE_KEY` dan `RECAPTCHA_SECRET_KEY` di `.env`, lalu jalankan `php artisan config:clear`. Kembalikan nilainya sebelum produksi.
+
 ## Testing
 
 Jalankan test:

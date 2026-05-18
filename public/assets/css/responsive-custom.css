@@ -1,0 +1,89 @@
+/*
+ * responsive-custom.css
+ * Penyesuaian tampilan EduSkill untuk layar mobile.
+ * Catatan: file ini HANYA menambahkan aturan untuk layar kecil.
+ * Tidak ada gaya desktop yang diubah — aman dari sisi tampilan lama.
+ */
+
+/* ============================================================
+   TOPBAR — tampilkan logo brand di HP.
+   Template menyembunyikan ".app-topbar .logo" dan hanya
+   memunculkan logo mobile untuk elemen berkelas ".logo-topbar"
+   (kelas bawaan template yang tidak dipakai markup EduSkill),
+   sehingga di HP topbar tampak tanpa logo. Aturan ini
+   menampilkan kembali logo versi kecil khusus layar HP.
+   ============================================================ */
+@media (max-width: 767.98px) {
+    .app-topbar .logo {
+        display: inline-flex !important;
+        align-items: center;
+    }
+
+    .app-topbar .logo span.logo-lg {
+        display: none !important;
+    }
+
+    .app-topbar .logo span.logo-sm {
+        display: inline-block !important;
+    }
+
+    .app-topbar .logo span.logo-sm img {
+        max-height: 30px;
+        width: auto;
+    }
+}
+
+/* ============================================================
+   TOPBAR — rapikan agar semua tombol muat satu baris di HP kecil
+   (logo, menu, pengaturan, dark mode, notifikasi, profil).
+   ============================================================ */
+@media (max-width: 575.98px) {
+    .topbar-menu > .d-flex {
+        gap: 0.35rem !important;
+    }
+
+    /* Tombol ikon dirampingkan agar tidak berdesakan */
+    .app-topbar .topbar-link.btn-icon {
+        min-width: 38px;
+        height: 38px;
+        padding: 0;
+    }
+
+    /* Cegah elemen topbar memicu geser horizontal */
+    .app-topbar .topbar-menu {
+        max-width: 100%;
+    }
+}
+
+/* ============================================================
+   DROPDOWN NOTIFIKASI ADMIN — sesuaikan dengan lebar layar HP.
+   Template sudah mengatur dropdown topbar full-width di layar
+   kecil, tetapi lebar paten 340px pada menu notifikasi
+   menggagalkannya. Aturan ini melepas lebar paten tersebut
+   sehingga menu mengikuti lebar layar.
+   ============================================================ */
+@media (max-width: 575.98px) {
+    #admin-notif-menu {
+        width: auto !important;
+    }
+
+    /* Daftar notifikasi: batasi tinggi agar tidak melebihi layar */
+    #admin-notif-list {
+        max-height: 60vh !important;
+    }
+}
+
+/* ============================================================
+   PENGAMAN UMUM KONTEN — cegah elemen lebar (tabel, gambar)
+   memicu scroll horizontal di HP.
+   ============================================================ */
+@media (max-width: 575.98px) {
+    .page-content img,
+    .page-content table {
+        max-width: 100%;
+    }
+
+    .table-responsive {
+        -webkit-overflow-scrolling: touch;
+    }
+}
